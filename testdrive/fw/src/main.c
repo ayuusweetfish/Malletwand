@@ -15,6 +15,8 @@
 #define nRF_CE_PIN  GPIO_PIN_4
 #define nRF_CE_PORT GPIOA
 
+#define RELEASE
+#ifndef RELEASE
 static uint8_t swv_buf[256];
 static size_t swv_buf_ptr = 0;
 __attribute__ ((noinline, used))
@@ -46,6 +48,9 @@ static void swv_printf(const char *restrict fmt, ...)
     swv_putchar('\n');
   }
 }
+#else
+#define swv_printf(...)
+#endif
 
 SPI_HandleTypeDef spi1 = { 0 }, spi2 = { 0 };
 TIM_HandleTypeDef tim14, tim16, tim17;
@@ -905,12 +910,66 @@ int main()
   HAL_Delay(10);
 
   // ======== Main loop ========
-  uint8_t nrf_ch[3] = { 2, 26, 80};
-  uint8_t ble_ch[3] = {37, 38, 39};
-  uint8_t cur_ch = 2;
 
-  uint32_t last_tick = HAL_GetTick();
-  while (true) {
+  struct proceed_t {
+    struct proceed_t (*fn)(void);
+    int wait;
+  };
+
+  static struct filter f = { 0 };
+  static int32_t filtered_angle = 0;
+
+  struct proceed_t read_bmi270_and_update() {
+    uint8_t data[16];
+  /*
+    data[0] = bmi270_read_reg(0x0C);
+    data[1] = bmi270_read_reg(0x0D);
+    swv_printf("%02x %02x | ", (int)data[0], (int)data[1]);
+  */
+    bmi270_read_burst(0x0C, data, 15);
+    // for (int i = 0; i < 15; i++) swv_printf("%02x%c", (int)data[i], i == 14 ? '\n' : ' ');
+    // Assumes little endian
+    data[15] = 0;
+    int16_t acc_x = *( int16_t *)(data +  0);
+    int16_t acc_y = *( int16_t *)(data +  2);
+    int16_t acc_z = *( int16_t *)(data +  4);
+    int16_t gyr_x = *( int16_t *)(data +  6);
+    int16_t gyr_y = *( int16_t *)(data +  8);
+    int16_t gyr_z = *( int16_t *)(data + 10);
+    uint32_t time = *(uint32_t *)(data + 12);
+    // Gyroscope calibration
+    int8_t gyr_cas = ((int8_t)bmi270_read_reg(0x3C) << 1) >> 1;
+    gyr_x -= ((uint32_t)gyr_cas * gyr_z) >> 9;
+
+    // Accelerator resolution is cancelled out by atan2
+    float angle_accel_f = atan2f(acc_y, acc_x);
+    int32_t angle_accel = (int32_t)(angle_accel_f * 16777216 + 0.5f);
+    // Read-out count resolution is (2*2000)/(180/pi) / 65536 = 1.065264436e-3
+    // (2*2000)/(180/pi) / 65536 * 16777216
+    int32_t angvel_gyr = (int32_t)(gyr_z * -17872.171540421936f + 0.5f);
+
+    int32_t angle = filter_update(&f, angle_accel, angvel_gyr);
+    angle = angle / 13177; // 16777216 / 4000 * pi
+    filtered_angle = angle;
+
+  #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
+    TIM16->CCR1 = 0;
+    TIM17->CCR1 = clamp( angle, 0, 4000);
+    TIM14->CCR1 = clamp(-angle, 0, 4000);
+
+    (void)time;
+    (void)gyr_y;
+    (void)acc_z;
+
+    return (struct proceed_t){read_bmi270_and_update, 10};
+  }
+
+  static const uint8_t nrf_ch[3] = { 2, 26, 80};
+  static const uint8_t ble_ch[3] = {37, 38, 39};
+  static uint8_t cur_ch = 2;
+  auto struct proceed_t tx_nRF_part_1();
+  auto struct proceed_t tx_nRF_part_2();
+  struct proceed_t tx_nRF_part_1() {
     cur_ch = (cur_ch + 1) % 3;
 
     uint8_t nRF_cmd_buf[33];
@@ -923,7 +982,7 @@ int main()
     buf[p++] = 0x42;  // Type: ADV_NONCONN_IND; TxAdd is random
     buf[p++] = 0;     // Payload length, to be filled
     // PDU payload
-    buf[p++] = 0xF9;  // Address
+    buf[p++] = 0xF9;  // Address (reversed)
     buf[p++] = 0xE9;
     buf[p++] = 0x33;
     buf[p++] = 0x74;
@@ -957,86 +1016,43 @@ int main()
     nRF_cmd_buf[0] = 0xA0;  // W_TX_PAYLOAD
     nRF_send_len(nRF_cmd_buf, p + 4);
     HAL_GPIO_WritePin(nRF_CE_PORT, nRF_CE_PIN, GPIO_PIN_SET);
-    HAL_Delay(5);
+    return (struct proceed_t){tx_nRF_part_2, 5};
+  }
+  struct proceed_t tx_nRF_part_2() {
     HAL_GPIO_WritePin(nRF_CE_PORT, nRF_CE_PIN, GPIO_PIN_RESET);
+    return (struct proceed_t){tx_nRF_part_1, 15};
+  }
 
+  struct task_t {
+    struct proceed_t (*fn)(void);
+    uint32_t next_tick;
+  };
+  uint32_t cur_tick = HAL_GetTick();
+  struct task_t task_pool[2] = {
+    {read_bmi270_and_update, cur_tick},
+    {tx_nRF_part_1, cur_tick},
+  };
+  while (1) {
     uint32_t cur_tick = HAL_GetTick();
-    if (cur_tick - last_tick >= 18) {
-      last_tick = cur_tick;
-    } else {
-      while (HAL_GetTick() - last_tick < 18) { }
-      last_tick += 18;
+    int32_t soonest_diff = INT32_MAX;
+    int soonest_index = -1;
+    for (int i = 0; i < 2; i++) {
+      int32_t diff = (int32_t)(task_pool[i].next_tick - cur_tick);
+      if (diff < soonest_diff) {
+        soonest_diff = diff;
+        soonest_index = i;
+      }
+    }
+    if (soonest_diff <= 0) {
+      // Execute task
+      struct proceed_t result = task_pool[soonest_index].fn();
+      task_pool[soonest_index].fn = result.fn;
+      task_pool[soonest_index].next_tick = cur_tick + result.wait;
     }
   }
 
+/*
   while (1) {
-    uint8_t data[16];
-  /*
-    data[0] = bmi270_read_reg(0x0C);
-    data[1] = bmi270_read_reg(0x0D);
-    swv_printf("%02x %02x | ", (int)data[0], (int)data[1]);
-  */
-    bmi270_read_burst(0x0C, data, 15);
-    // for (int i = 0; i < 15; i++) swv_printf("%02x%c", (int)data[i], i == 14 ? '\n' : ' ');
-    // Assumes little endian
-    data[15] = 0;
-    int16_t acc_x = *( int16_t *)(data +  0);
-    int16_t acc_y = *( int16_t *)(data +  2);
-    int16_t acc_z = *( int16_t *)(data +  4);
-    int16_t gyr_x = *( int16_t *)(data +  6);
-    int16_t gyr_y = *( int16_t *)(data +  8);
-    int16_t gyr_z = *( int16_t *)(data + 10);
-    uint32_t time = *(uint32_t *)(data + 12);
-    // Gyroscope calibration
-    int8_t gyr_cas = ((int8_t)bmi270_read_reg(0x3C) << 1) >> 1;
-    gyr_x -= ((uint32_t)gyr_cas * gyr_z) >> 9;
-    TIM16->CCR1 = 0;
-  /*
-    // Max. cycle 4000, g = 32768/4 = 8192 counts
-    TIM17->CCR1 = (acc_x > 0 ? acc_x : 0) / 4;
-    TIM14->CCR1 = (acc_x < 0 ? -acc_x : 0) / 4;
-  */
-  #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
-  /*
-    static int16_t last_acc_x = 0;
-    int32_t diff = (int32_t)acc_x - last_acc_x;
-    last_acc_x = acc_x;
-    TIM17->CCR1 = clamp(diff / 4, 0, 4000);
-    TIM14->CCR1 = clamp(-diff / 4, 0, 4000);
-  */
-  /*
-    // Maximum Omega_z at lowest point; sign indicates direction
-    TIM17->CCR1 = clamp(gyr_z, 0, 4000);
-    TIM14->CCR1 = clamp(-gyr_z, 0, 4000);
-  */
-  /*
-    // Maximum a_x at lowest point
-    TIM17->CCR1 = clamp( acc_x - 8000, 0, 4000);
-    TIM14->CCR1 = clamp(-acc_x - 8000, 0, 4000);
-  */
-
-    // Accelerator resolution is cancelled out by atan2
-    float angle_accel_f = atan2f(acc_y, acc_x);
-  /*
-    int angle_accel = (int)(angle_accel_f * 1000);
-    TIM17->CCR1 = clamp( angle_accel, 0, 4000);
-    TIM14->CCR1 = clamp(-angle_accel, 0, 4000);
-  */
-    int32_t angle_accel = (int32_t)(angle_accel_f * 16777216 + 0.5f);
-    // Read-out count resolution is (2*2000)/(180/pi) / 65536 = 1.065264436e-3
-  /*
-    float angvel_gyr_f = gyr_z * -1.065264436e-3f;
-    int angvel_gyr = (int)(angvel_gyr_f * 10);
-    TIM17->CCR1 = clamp( angvel_gyr, 0, 4000);
-    TIM14->CCR1 = clamp(-angvel_gyr, 0, 4000);
-  */
-    // (2*2000)/(180/pi) / 65536 * 16777216
-    int32_t angvel_gyr = (int32_t)(gyr_z * -17872.171540421936f + 0.5f);
-
-    static struct filter f = { 0 };
-    int32_t angle = filter_update(&f, angle_accel, angvel_gyr);
-    angle = angle / 13177; // 16777216 / 4000 * pi
-
     TIM17->CCR1 = clamp( angle, 0, 4000);
     TIM14->CCR1 = clamp(-angle, 0, 4000);
 
@@ -1046,6 +1062,7 @@ int main()
       time);
     HAL_Delay(10);
   }
+*/
 
   TIM14->CCR1 = 0;
   TIM16->CCR1 = 0;
