@@ -8,8 +8,12 @@
 #define PIN_PWR_LATCH   GPIO_PIN_5
 #define PORT_PWR_LATCH  GPIOA
 
-#define PIN_CS_BMI270   GPIO_PIN_7
-#define PORT_CS_BMI270  GPIOA
+#define BMI_CS_PIN  GPIO_PIN_7
+#define BMI_CS_PORT GPIOA
+#define nRF_CS_PIN  GPIO_PIN_3
+#define nRF_CS_PORT GPIOA
+#define nRF_CE_PIN  GPIO_PIN_4
+#define nRF_CE_PORT GPIOA
 
 static uint8_t swv_buf[256];
 static size_t swv_buf_ptr = 0;
@@ -75,23 +79,23 @@ static inline void spi2_receive(uint8_t *data, size_t size)
 static inline uint8_t bmi270_read_reg(uint8_t reg)
 {
   uint8_t data[2] = {0x80 | reg};
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 0);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
   spi2_transmit(data, 1);
   spi2_receive(data, 2);
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
   return data[1];
 }
 static inline void bmi270_write_reg(uint8_t reg, uint8_t value)
 {
   uint8_t data[2] = {reg, value};
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 0);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
   spi2_transmit(data, 2);
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
   // 2 µs delay
 }
 static inline void bmi270_read_burst(uint8_t reg, uint8_t *data, uint32_t len)
 {
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 0);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
   uint8_t data_byte = {0x80 | reg};
   spi2_transmit(&data_byte, 1);
 /*
@@ -104,13 +108,13 @@ static inline void bmi270_read_burst(uint8_t reg, uint8_t *data, uint32_t len)
   static uint8_t buf[32];
   spi2_receive(buf, len + 1);
   for (int i = 0; i < len; i++) data[i] = buf[i + 1];
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
 }
 static inline void bmi270_write_burst(const uint8_t *data, uint32_t len)
 {
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 0);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
   spi2_transmit(data, len);
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
 }
 static const uint8_t bmi270_config_file[] = {
   0x5E,
@@ -548,6 +552,63 @@ static const uint8_t bmi270_config_file[] = {
   0x2e, 0x00, 0xc1
 };
 
+static inline void nRF_send_len(const uint8_t *cmd, uint32_t size)
+{
+  HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_RESET);
+  HAL_SPI_Transmit(&spi1, (uint8_t *)cmd, size, 1000);
+  HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_SET);
+}
+#define nRF_send(...) do { \
+  uint8_t buf[] = {__VA_ARGS__}; \
+  nRF_send_len(buf, sizeof buf); \
+} while (0)
+
+static inline uint8_t bit_rev(uint8_t x)
+{
+  x = (x & 0b00001111) << 4 | (x & 0b11110000) >> 4;
+  x = (x & 0b00110011) << 2 | (x & 0b11001100) >> 2;
+  x = (x & 0b01010101) << 1 | (x & 0b10101010) >> 1;
+  return x;
+}
+
+static inline void ble_encode_packet(uint8_t *packet, uint8_t len, uint8_t ch)
+{
+  // CRC
+  uint8_t crc[3] = {0x55, 0x55, 0x55};
+  for (uint8_t i = 0; i < len; i++) {
+    uint8_t d = packet[i];
+    for (uint8_t v = 0; v < 8; v++, d >>= 1) {
+      uint8_t t = 0;
+      if (crc[0] & 0x80) { t = 1;       } crc[0] <<= 1;
+      if (crc[1] & 0x80) { crc[0] |= 1; } crc[1] <<= 1;
+      if (crc[2] & 0x80) { crc[1] |= 1; } crc[2] <<= 1;
+      if (t != (d & 1)) {
+        crc[2] ^= 0x5B;
+        crc[1] ^= 0x06;
+      }
+    }
+  }
+  packet[len + 0] = bit_rev(crc[0]);
+  packet[len + 1] = bit_rev(crc[1]);
+  packet[len + 2] = bit_rev(crc[2]);
+
+  // Whiten
+  uint8_t whiten_coeff = bit_rev(ch) | 2;
+  for (uint8_t i = 0; i < len + 3; i++) {
+    for (uint8_t m = 1; m != 0; m <<= 1) {
+      if (whiten_coeff & 0x80) {
+        whiten_coeff ^= 0x11;
+        packet[i] ^= m;
+      }
+      whiten_coeff <<= 1;
+    }
+  }
+
+  // Reverse all bits
+  for (uint8_t i = 0; i < len + 3; i++)
+    packet[i] = bit_rev(packet[i]);
+}
+
 struct filter {
   int32_t i1, i2;
 };
@@ -567,9 +628,8 @@ static inline int32_t filter_update(
 ) {
   int32_t x1 = f->i2 - th_a;
   f->i1 = satadd32(f->i1, ((int64_t)x1 * 167772) >> 24);
-  const int32_t omega = 3.0f;
   int32_t x2 =
-    (((int64_t)f->i1 * 50331648) >> 24) + // omega
+    (((int64_t)f->i1 * 50331648) >> 24) + // omega = 3 = char./corner freq. (rad/s)
     (((int64_t)x1 * 71179699) >> 24); // sqrt(2) * omega
   int32_t x3 = dth_g - x2;
   f->i2 = satadd32(f->i2, ((int64_t)x3 * 167772) >> 24);
@@ -706,13 +766,16 @@ int main()
 
   // ======== SPI ========
   // SPI1
-  // SPI1_SCK (PA1), SPI1_MOSI (PA2)
-  gpio_init.Pin = GPIO_PIN_1 | GPIO_PIN_2;
+  // SPI1_SCK (PA1 AF0), SPI1_MOSI (PA2 AF0), SPI1_MISO (PA6 AF0)
+  gpio_init.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_6;
   gpio_init.Mode = GPIO_MODE_AF_PP;
   gpio_init.Alternate = GPIO_AF0_SPI1;
   gpio_init.Pull = GPIO_NOPULL;
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &gpio_init);
+  HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(nRF_CE_PORT, nRF_CE_PIN, GPIO_PIN_RESET);
+  HAL_Delay(10);
 
   __HAL_RCC_SPI1_CLK_ENABLE();
   spi1.Instance = SPI1;
@@ -729,8 +792,50 @@ int main()
   HAL_SPI_Init(&spi1);
   __HAL_SPI_ENABLE(&spi1);
 
+  // nRF24L01+ CS, CE
+  gpio_init.Pin = nRF_CS_PIN | nRF_CE_PIN;
+  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
+  gpio_init.Pull = GPIO_NOPULL;
+  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(nRF_CS_PORT, &gpio_init);
+
+  // Set up nRF24L01+
+  nRF_send(0x20, 0x72); // CONFIG: Disable IRQ and CRC, power up
+  nRF_send(0x21, 0x00); // EN_AA: Disable auto ack.
+  nRF_send(0x22, 0x00); // EN_RXADDR: Disable RX completely
+  nRF_send(0x23, 0x02); // SETUP_AW: 4-byte address
+  nRF_send(0x24, 0x00); // SETUP_RETR: Disable auto restransmission
+  nRF_send(0x26, 0x06); // RF_SETUP: 1 Mbps, 0 dBm
+  nRF_send(0x27, 0x70); // STATUS: Clear status flags
+  nRF_send(0x31, 32);   // RX_PW_P0: Pipe 0 payload length 32 bytes
+  nRF_send(0x22, 0x01); // EN_RXADDR: Enable RX on pipe 0
+  nRF_send(0x2A, bit_rev(0x8E), bit_rev(0x89), bit_rev(0xBE), bit_rev(0xD6));
+    // RX_ADDR_P0: Set pipe 0 receive address
+  nRF_send(0x30, bit_rev(0x8E), bit_rev(0x89), bit_rev(0xBE), bit_rev(0xD6));
+    // TX_ADDR: Set transmit address
+
+  // Read register 0x06 (RF_SETUP)
+  HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_RESET);
+  uint8_t spi_tx[2] = {0x06, 0x00};
+  uint8_t spi_rx[2];
+  HAL_SPI_TransmitReceive(&spi1, spi_tx, spi_rx, 2, 1000);
+  HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_SET);
+  if (spi_rx[0] != 0x0E || spi_rx[1] != 0x06) {
+    // Error? Try a reset
+    for (int i = 0; i < 11; i++) {
+      TIM17->CCR1 = 4000 * (i % 2);
+      HAL_Delay(120);
+    }
+    HAL_Delay(500);
+    NVIC_SystemReset();
+  }
+
+  TIM14->CCR1 = 4000;
+  HAL_Delay(200);
+  TIM14->CCR1 = 0;
+
   // SPI2
-  // SPI2_SCK (PA0), SPI2_MOSI (PA10)
+  // SPI2_SCK (PA0 AF0), SPI2_MOSI (PA10 AF0)
   gpio_init.Pin = GPIO_PIN_0 | GPIO_PIN_10;
   gpio_init.Mode = GPIO_MODE_AF_PP;
   gpio_init.Alternate = GPIO_AF0_SPI2;
@@ -756,21 +861,21 @@ int main()
   HAL_SPI_Init(&spi2);
   __HAL_SPI_ENABLE(&spi2);
 
-  // CS_BMI270
-  gpio_init.Pin = PIN_CS_BMI270;
+  // BMI270 CS
+  gpio_init.Pin = BMI_CS_PIN;
   gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
   gpio_init.Pull = GPIO_NOPULL;
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(PORT_CS_BMI270, &gpio_init);
+  HAL_GPIO_Init(BMI_CS_PORT, &gpio_init);
 
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 0); HAL_Delay(1);
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 1); HAL_Delay(1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0); HAL_Delay(1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1); HAL_Delay(1);
   bmi270_read_reg(0x00);
   bmi270_write_reg(0x7E, 0xB6); // Soft reset
   HAL_Delay(1);
 
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 0); HAL_Delay(1);
-  HAL_GPIO_WritePin(PORT_CS_BMI270, PIN_CS_BMI270, 1); HAL_Delay(1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0); HAL_Delay(1);
+  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1); HAL_Delay(1);
   bmi270_read_reg(0x00);
   bmi270_write_reg(0x6B, 0x01); // IF_CONF.spi3 = 1
   HAL_Delay(1);
@@ -798,6 +903,71 @@ int main()
   bmi270_write_reg(0x42, 0xA9);   // GYR_CONF
   bmi270_write_reg(0x43, 0x00);   // GYR_RANGE: +/-2000dps
   HAL_Delay(10);
+
+  // ======== Main loop ========
+  uint8_t nrf_ch[3] = { 2, 26, 80};
+  uint8_t ble_ch[3] = {37, 38, 39};
+  uint8_t cur_ch = 2;
+
+  uint32_t last_tick = HAL_GetTick();
+  while (true) {
+    cur_ch = (cur_ch + 1) % 3;
+
+    uint8_t nRF_cmd_buf[33];
+    uint8_t *buf = nRF_cmd_buf + 1;
+    uint8_t p = 0;
+    // PDU - Protocol Data Unit
+    // AD - Advertising Data
+    // For assigned numbers, see https://www.bluetooth.com/specifications/an/
+    // PDU header
+    buf[p++] = 0x42;  // Type: ADV_NONCONN_IND; TxAdd is random
+    buf[p++] = 0;     // Payload length, to be filled
+    // PDU payload
+    buf[p++] = 0xF9;  // Address
+    buf[p++] = 0xE9;
+    buf[p++] = 0x33;
+    buf[p++] = 0x74;
+    buf[p++] = 0xD0;
+    buf[p++] = 0xFD;
+  /*
+    buf[p++] = 2;     // AD length
+    buf[p++] = 0x01;  // Type: Flags
+    buf[p++] = 0x05;
+  */
+    buf[p++] = 4;     // AD length
+    buf[p++] = 0x08;  // Type: Shortened Local Name
+    buf[p++] = 'M';
+    buf[p++] = 'l';
+    buf[p++] = 't';
+    buf[p++] = 4;     // AD length
+    buf[p++] = 0xFF;  // Type: Manufacturer Specific Data
+    buf[p++] = 0xFF;
+    buf[p++] = 0xFF;
+    static uint16_t timestamp = 0xAA << 2;
+    buf[p++] = (++timestamp) >> 2;
+    buf[1] = p - 2;   // Payload length
+
+    // Encode packet
+    ble_encode_packet(buf, p, ble_ch[cur_ch]);
+
+    nRF_send(0x25, nrf_ch[cur_ch]); // RF_CH: Set channel
+    nRF_send(0x27, 0x70); // STATUS: Clear status flags
+    nRF_send(0xE1); // FLUSH_TX
+    nRF_send(0xE2); // FLUSH_RX
+    nRF_cmd_buf[0] = 0xA0;  // W_TX_PAYLOAD
+    nRF_send_len(nRF_cmd_buf, p + 4);
+    HAL_GPIO_WritePin(nRF_CE_PORT, nRF_CE_PIN, GPIO_PIN_SET);
+    HAL_Delay(5);
+    HAL_GPIO_WritePin(nRF_CE_PORT, nRF_CE_PIN, GPIO_PIN_RESET);
+
+    uint32_t cur_tick = HAL_GetTick();
+    if (cur_tick - last_tick >= 18) {
+      last_tick = cur_tick;
+    } else {
+      while (HAL_GetTick() - last_tick < 18) { }
+      last_tick += 18;
+    }
+  }
 
   while (1) {
     uint8_t data[16];
@@ -854,8 +1024,8 @@ int main()
   */
     int32_t angle_accel = (int32_t)(angle_accel_f * 16777216 + 0.5f);
     // Read-out count resolution is (2*2000)/(180/pi) / 65536 = 1.065264436e-3
-    float angvel_gyr_f = gyr_z * -1.065264436e-3f;
   /*
+    float angvel_gyr_f = gyr_z * -1.065264436e-3f;
     int angvel_gyr = (int)(angvel_gyr_f * 10);
     TIM17->CCR1 = clamp( angvel_gyr, 0, 4000);
     TIM14->CCR1 = clamp(-angvel_gyr, 0, 4000);
