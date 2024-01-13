@@ -912,35 +912,31 @@ int main()
   bmi270_write_reg(0x6B, 0x21);   // IF_CONF.aux_en = 1
   bmi270_write_reg(0x7D, 0b0110); // PWR_CTRL.aux_en = 0
   bmi270_write_reg(0x4B, 0x30 << 1);  // AUX_DEV_ID
-  bmi270_write_reg(0x4C, 0b11001010);
+  bmi270_write_reg(0x4C, 0b10001111);
     // AUX_IF_CONF
-    //   .aux_rd_burst = 0x2 (length 6)
-    //   .man_rd_burst = 0x2 (length 6)
+    //   .aux_rd_burst = 0x3 (length 8)
+    //   .man_rd_burst = 0x3 (length 8)
     //   .aux_manual_en = 1
-/*
-  // Write to MMC5603NJ register 0x1B (Internal Control 0), value 0x21
-  bmi270_write_reg(0x4F, 0x21);   // AUX_WR_DATA
-  bmi270_write_reg(0x4E, 0x1B);   // AUX_WR_ADDR
-  HAL_Delay(1000);
-  bmi270_write_reg(0x4D, 0x00);   // AUX_RD_ADDR
-*/
   // Write to ODR (0x1A), value 100
   bmi270_write_reg(0x4F, 100);
   bmi270_write_reg(0x4E, 0x1A);
   HAL_Delay(1);
-  // Write to Internal Control 0 (0x1B), value 0x81
-  bmi270_write_reg(0x4F, 0x81);
+  // Write to Internal Control 0 (0x1B), value 0xA1 (Cmm_freq_en, Auto_SR_en, Take_meas_M)
+  bmi270_write_reg(0x4F, 0xA1);
   bmi270_write_reg(0x4E, 0x1B);
   HAL_Delay(1);
-  // Write to Internal Control 2 (0x1D), value 0x10
+  // Write to Internal Control 2 (0x1D), value 0x10 (Cmm_en)
   bmi270_write_reg(0x4F, 0x10);
   bmi270_write_reg(0x4E, 0x1D);
-  HAL_Delay(1000);
+  HAL_Delay(1);
+
+  bmi270_write_reg(0x7D, 0b0111); // PWR_CTRL.aux_en = 1
+  bmi270_write_reg(0x4D, 0x00);   // AUX_RD_ADDR
+  bmi270_write_reg(0x4C, 0b00001111); // AUX_IF_CONF.aux_manual_en = 0
+  HAL_Delay(10);
 
   while (1) {
     uint8_t data[32] = {1, 2, 3, 4, 5, 6, 7, 8};
-    bmi270_write_reg(0x4D, 0x00);   // AUX_RD_ADDR
-    HAL_Delay(1);
     bmi270_read_burst(0x04, data, 8);
     uint16_t aux_x = ((uint16_t)data[0] << 8) | data[1];
     uint16_t aux_y = ((uint16_t)data[2] << 8) | data[3];
@@ -948,7 +944,7 @@ int main()
     uint16_t aux_r = ((uint16_t)data[6] << 8) | data[7];
     swv_printf("aux = %04x %04x %04x %04x\n",
       (unsigned)aux_x, (unsigned)aux_y, (unsigned)aux_z, (unsigned)aux_r);
-    HAL_Delay(100);
+    HAL_Delay(10);
   }
 
   // ======== Main loop ========
