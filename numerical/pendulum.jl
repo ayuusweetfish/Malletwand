@@ -89,9 +89,10 @@ end
 function progressHalf(θ, dθ)
   u = cos(θ) - dθ * dθ / (2 * k)
   if abs(u) > 1 return 0.0 end
-  θ_0 = acos(u)
-  T = ellipticF(sin(θ/2), sin(θ_0/2)^-2)
-  T_0 = ellipticF(sin(θ_0/2), sin(θ_0/2)^-2)
+  # θ_0 = acos(u), t = sin(θ_0/2)^2
+  t = (1 - u) / 2
+  T = ellipticF(sin(θ/2), 1 / t)
+  T_0 = ellipticF(sqrt(t), 1 / t)
   return T / T_0  # [-1, 1]
 end
 
