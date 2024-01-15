@@ -15,7 +15,7 @@
 #define nRF_CE_PIN  GPIO_PIN_4
 #define nRF_CE_PORT GPIOA
 
-// #define RELEASE
+#define RELEASE
 #ifndef RELEASE
 static uint8_t swv_buf[256];
 static size_t swv_buf_ptr = 0;
@@ -935,7 +935,7 @@ int main()
   bmi270_write_reg(0x4C, 0b00001111); // AUX_IF_CONF.aux_manual_en = 0
   HAL_Delay(10);
 
-  while (1) {
+  while (0) {
     uint8_t data[32] = {1, 2, 3, 4, 5, 6, 7, 8};
     bmi270_read_burst(0x04, data, 8);
     uint16_t aux_x = ((uint16_t)data[0] << 8) | data[1];
