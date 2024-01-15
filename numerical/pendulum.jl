@@ -111,9 +111,15 @@ heatmap!(x, y, progress, colormap = Reverse(:lightrainbow))
 fig
 
 # Difference from arctan
+function progressByArctan(θ, dθ)
+  u = cos(θ) - dθ * dθ / (2 * k)
+  if abs(u) > 1 return NaN end
+  θ_0 = acos(u)
+  atan(dθ / sqrt(2k * (1 - u)), θ / θ_0) / pi * -0.5 + 0.5
+end
 function diffArctan(θ, dθ)
   if abs(dθ) >= critThetaDeriv(θ) return 0.0 end
-  progress(θ, dθ) - (atan(dθ, θ) / pi * -0.5 + 0.5)
+  progress(θ, dθ) - progressByArctan(θ, dθ)
 end
 hm = heatmap!(x, y, diffArctan, colormap = :vik)
 Colorbar(fig[1, 2], hm)
