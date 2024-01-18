@@ -16,15 +16,24 @@ vs = Float64[]
 ϕs = Float64[]
 ωs = Float64[]
 As = Float64[]
-for i in 1:10000
+for i in 1:100000
   dt = 0.01
   global A, ϕ, ω
   ω += (randn(rng, Float64)*0.5) * 16 * dt
-  ω = clamp(ω, 0.5, 50)
+  if rand(rng, Float32) < 0.001
+    ω += (randn(rng, Float64) * 2 - 1) * 2
+  end
+  ω = clamp(ω, 0.5, 20)
   A += (randn(rng, Float64)*0.5) * 24 * dt * (1.5 - abs(sin(ϕ)))
+  if rand(rng, Float32) < 0.001
+    A += (randn(rng, Float64) * 2 - 1) * 4
+  end
   A = clamp(A, 2, 50)
   ϕ += ω * dt
   x = A * sin(ϕ)
+  if rand(rng, Float32) < 0.001
+    ϕ += randn(rng, Float64) * π
+  end
   push!(xs, x)
   push!(vs, A * cos(ϕ))
   push!(ϕs, (ϕ + π) % (2 * π) - π)
@@ -42,8 +51,8 @@ wait(display(fig))
 
 using LinearAlgebra
 
-function EKF_step(x, P, z, u, F, H, Q, R)
-  x1 = F * x + u
+function EKF_step(x, P, z, F, H, Q, R)
+  x1 = F * x
   P1 = F * P * transpose(F) + Q
   y = z - H * x1
   S = H * P1 * transpose(H) + R
@@ -82,14 +91,13 @@ for i in 1:N
   F = [1 0 0;
        dt*(-x[3]*cos_ωdt - x[2]*sin_ωdt) cos_ωdt -sin_ωdt;
        dt*( x[2]*cos_ωdt - x[3]*sin_ωdt) sin_ωdt  cos_ωdt]
-  u = [0.0; 0; 0]
   H = [0.0 0 1; 0 1 0]
   Q = [1 0 0;
-       0 0.01 0;
-       0 0 0.01] * dt^2
+       0 1 0;
+       0 0 1] * dt^2
   R = [0.04*sqrt(x[2]^2+x[3]^2)/10 0;
        0 0.32]
-  x, P, K = EKF_step(x, P, z, u, F, H, Q, R)
+  x, P, K = EKF_step(x, P, z, F, H, Q, R)
   push!(xsObserved, observedPos)
   push!(xsFiltered, x[3])
   push!(amplFiltered, sqrt(x[2]^2 + x[3]^2))
