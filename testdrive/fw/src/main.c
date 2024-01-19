@@ -981,12 +981,10 @@ int main()
     int8_t gyr_cas = ((int8_t)bmi270_read_reg(0x3C) << 1) >> 1;
     gyr[0] -= ((uint32_t)gyr_cas * gyr[2]) >> 9;
 
-    int32_t angle = 100;
-
   #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
-    TIM16->CCR1 = 0;
-    TIM17->CCR1 = clamp( angle, 0, 4000);
-    TIM14->CCR1 = clamp(-angle, 0, 4000);
+    TIM16->CCR1 = (HAL_GetTick() % 2048 <= 50) ? 300 : 0;
+    TIM17->CCR1 = 0;
+    TIM14->CCR1 = 0;
 
     return (struct proceed_t){read_bmi270_and_update, 10};
   }
@@ -1084,6 +1082,8 @@ int main()
       struct proceed_t result = task_pool[soonest_index].fn();
       task_pool[soonest_index].fn = result.fn;
       task_pool[soonest_index].next_tick = cur_tick + result.wait;
+    } else {
+      HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     }
   }
 
