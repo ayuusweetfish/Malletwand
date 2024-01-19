@@ -15,8 +15,9 @@
 #define nRF_CE_PIN  GPIO_PIN_4
 #define nRF_CE_PORT GPIOA
 
-#define RELEASE
+// #define RELEASE
 #ifndef RELEASE
+#define _release_inline
 static uint8_t swv_buf[256];
 static size_t swv_buf_ptr = 0;
 __attribute__ ((noinline, used))
@@ -49,6 +50,7 @@ static void swv_printf(const char *restrict fmt, ...)
   }
 }
 #else
+#define _release_inline inline
 #define swv_printf(...)
 #endif
 
@@ -72,16 +74,16 @@ static inline void spi1_transmit(uint8_t *data, size_t size)
 */
 }
 
-static inline void spi2_transmit(uint8_t *data, size_t size)
+static inline void spi2_transmit(const uint8_t *data, size_t size)
 {
-  HAL_SPI_Transmit(&spi2, data, size, 1000); return;
+  HAL_SPI_Transmit(&spi2, (uint8_t *)data, size, 1000); return;
 }
 static inline void spi2_receive(uint8_t *data, size_t size)
 {
   for (int i = 0; i < size; i++) data[i] = 0xAA;
   HAL_SPI_Receive(&spi2, data, size, 1000);
 }
-static inline uint8_t bmi270_read_reg(uint8_t reg)
+static _release_inline uint8_t bmi270_read_reg(uint8_t reg)
 {
   uint8_t data[2] = {0x80 | reg};
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
@@ -90,7 +92,7 @@ static inline uint8_t bmi270_read_reg(uint8_t reg)
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
   return data[1];
 }
-static inline void bmi270_write_reg(uint8_t reg, uint8_t value)
+static _release_inline void bmi270_write_reg(uint8_t reg, uint8_t value)
 {
   uint8_t data[2] = {reg, value};
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
@@ -98,7 +100,7 @@ static inline void bmi270_write_reg(uint8_t reg, uint8_t value)
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
   // 2 µs delay
 }
-static inline void bmi270_read_burst(uint8_t reg, uint8_t *data, uint32_t len)
+static _release_inline void bmi270_read_burst(uint8_t reg, uint8_t *data, uint32_t len)
 {
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
   uint8_t data_byte = {0x80 | reg};
@@ -115,7 +117,7 @@ static inline void bmi270_read_burst(uint8_t reg, uint8_t *data, uint32_t len)
   for (int i = 0; i < len; i++) data[i] = buf[i + 1];
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
 }
-static inline void bmi270_write_burst(const uint8_t *data, uint32_t len)
+static _release_inline void bmi270_write_burst(const uint8_t *data, uint32_t len)
 {
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0);
   spi2_transmit(data, len);
@@ -557,7 +559,7 @@ static const uint8_t bmi270_config_file[] = {
   0x2e, 0x00, 0xc1
 };
 
-static inline void nRF_send_len(const uint8_t *cmd, uint32_t size)
+static _release_inline void nRF_send_len(const uint8_t *cmd, uint32_t size)
 {
   HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_RESET);
   HAL_SPI_Transmit(&spi1, (uint8_t *)cmd, size, 1000);
@@ -957,47 +959,34 @@ int main()
   static struct filter f = { 0 };
   static int32_t filtered_angle = 0;
 
+  int16_t mag[3], acc[3], gyr[3];
+
   struct proceed_t read_bmi270_and_update() {
-    uint8_t data[16];
-  /*
-    data[0] = bmi270_read_reg(0x0C);
-    data[1] = bmi270_read_reg(0x0D);
-    swv_printf("%02x %02x | ", (int)data[0], (int)data[1]);
-  */
-    bmi270_read_burst(0x0C, data, 15);
-    // for (int i = 0; i < 15; i++) swv_printf("%02x%c", (int)data[i], i == 14 ? '\n' : ' ');
+    uint8_t data[24];
+    bmi270_read_burst(0x04, data, 23);
+    // for (int i = 0; i < 23; i++) swv_printf("%02x%c", (int)data[i], i == 22 ? '\n' : ' ');
     // Assumes little endian
-    data[15] = 0;
-    int16_t acc_x = *( int16_t *)(data +  0);
-    int16_t acc_y = *( int16_t *)(data +  2);
-    int16_t acc_z = *( int16_t *)(data +  4);
-    int16_t gyr_x = *( int16_t *)(data +  6);
-    int16_t gyr_y = *( int16_t *)(data +  8);
-    int16_t gyr_z = *( int16_t *)(data + 10);
-    uint32_t time = *(uint32_t *)(data + 12);
+    mag[0] = ((int16_t)((int8_t)data[0] << 8) | data[1]) + 0x8000;
+    mag[1] = ((int16_t)((int8_t)data[2] << 8) | data[3]) + 0x8000;
+    mag[2] = ((int16_t)((int8_t)data[4] << 8) | data[5]) + 0x8000;
+    acc[0] = *( int16_t *)(data +  8);
+    acc[1] = *( int16_t *)(data + 10);
+    acc[2] = *( int16_t *)(data + 12);
+    gyr[0] = *( int16_t *)(data + 14);
+    gyr[1] = *( int16_t *)(data + 16);
+    gyr[2] = *( int16_t *)(data + 18);
+    data[23] = 0;
+    uint32_t time = *(uint32_t *)(data + 20);
     // Gyroscope calibration
     int8_t gyr_cas = ((int8_t)bmi270_read_reg(0x3C) << 1) >> 1;
-    gyr_x -= ((uint32_t)gyr_cas * gyr_z) >> 9;
+    gyr[0] -= ((uint32_t)gyr_cas * gyr[2]) >> 9;
 
-    // Accelerator resolution is cancelled out by atan2
-    float angle_accel_f = atan2f(acc_y, acc_x);
-    int32_t angle_accel = (int32_t)(angle_accel_f * 16777216 + 0.5f);
-    // Read-out count resolution is (2*2000)/(180/pi) / 65536 = 1.065264436e-3
-    // (2*2000)/(180/pi) / 65536 * 16777216
-    int32_t angvel_gyr = (int32_t)(gyr_z * -17872.171540421936f + 0.5f);
-
-    int32_t angle = filter_update(&f, angle_accel, angvel_gyr);
-    angle = angle / 13177; // 16777216 / 4000 * pi
-    filtered_angle = angle;
+    int32_t angle = 100;
 
   #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
     TIM16->CCR1 = 0;
     TIM17->CCR1 = clamp( angle, 0, 4000);
     TIM14->CCR1 = clamp(-angle, 0, 4000);
-
-    (void)time;
-    (void)gyr_y;
-    (void)acc_z;
 
     return (struct proceed_t){read_bmi270_and_update, 10};
   }
@@ -1026,22 +1015,31 @@ int main()
     buf[p++] = 0x74;
     buf[p++] = 0xD0;
     buf[p++] = 0xFD;
-  /*
-    buf[p++] = 2;     // AD length
-    buf[p++] = 0x01;  // Type: Flags
-    buf[p++] = 0x05;
-  */
     buf[p++] = 4;     // AD length
     buf[p++] = 0x08;  // Type: Shortened Local Name
     buf[p++] = 'M';
     buf[p++] = 'l';
     buf[p++] = 't';
-    buf[p++] = 4;     // AD length
+    buf[p++] = 13;    // AD length
     buf[p++] = 0xFF;  // Type: Manufacturer Specific Data
+  /*
     buf[p++] = 0xFF;
     buf[p++] = 0xFF;
-    static uint16_t timestamp = 0xAA << 2;
-    buf[p++] = (++timestamp) >> 2;
+  */
+  /*
+    static uint16_t timestamp = 0xAA00;
+    timestamp++;
+    buf[p++] = timestamp >> 8;
+    buf[p++] = timestamp & 0xFF;
+  */
+    for (int i = 0; i < 3; i++) {
+      buf[p++] = mag[i] >> 8;
+      buf[p++] = mag[i] & 0xFF;
+    }
+    for (int i = 0; i < 3; i++) {
+      buf[p++] = acc[i] >> 8;
+      buf[p++] = acc[i] & 0xFF;
+    }
     buf[1] = p - 2;   // Payload length
 
     // Encode packet
@@ -1054,11 +1052,11 @@ int main()
     nRF_cmd_buf[0] = 0xA0;  // W_TX_PAYLOAD
     nRF_send_len(nRF_cmd_buf, p + 4);
     HAL_GPIO_WritePin(nRF_CE_PORT, nRF_CE_PIN, GPIO_PIN_SET);
-    return (struct proceed_t){tx_nRF_part_2, 5};
+    return (struct proceed_t){tx_nRF_part_2, 2};
   }
   struct proceed_t tx_nRF_part_2() {
     HAL_GPIO_WritePin(nRF_CE_PORT, nRF_CE_PIN, GPIO_PIN_RESET);
-    return (struct proceed_t){tx_nRF_part_1, 15};
+    return (struct proceed_t){tx_nRF_part_1, 4};
   }
 
   struct task_t {
