@@ -627,6 +627,12 @@ static inline int32_t satadd32(int32_t a, int32_t b)
   return a + b;
 }
 
+static inline int16_t satneg16(int16_t x)
+{
+  if (x == INT16_MIN) return INT16_MAX;
+  return -x;
+}
+
 // 8.24 fixed point
 // Tick is 1/100 s = 167772
 static inline int32_t filter_update(
@@ -966,15 +972,15 @@ int main()
     bmi270_read_burst(0x04, data, 23);
     // for (int i = 0; i < 23; i++) swv_printf("%02x%c", (int)data[i], i == 22 ? '\n' : ' ');
     // Assumes little endian
-    mag[0] = ((int16_t)((int8_t)data[0] << 8) | data[1]) + 0x8000;
-    mag[1] = ((int16_t)((int8_t)data[2] << 8) | data[3]) + 0x8000;
-    mag[2] = ((int16_t)((int8_t)data[4] << 8) | data[5]) + 0x8000;
-    acc[0] = *( int16_t *)(data +  8);
-    acc[1] = *( int16_t *)(data + 10);
-    acc[2] = *( int16_t *)(data + 12);
-    gyr[0] = *( int16_t *)(data + 14);
-    gyr[1] = *( int16_t *)(data + 16);
-    gyr[2] = *( int16_t *)(data + 18);
+    mag[0] = satneg16(((int16_t)((int8_t)data[0] << 8) | data[1]) + 0x8000);
+    mag[2] = satneg16(((int16_t)((int8_t)data[2] << 8) | data[3]) + 0x8000);
+    mag[1] = satneg16(((int16_t)((int8_t)data[4] << 8) | data[5]) + 0x8000);
+    acc[2] =          *( int16_t *)(data +  8);
+    acc[0] = satneg16(*( int16_t *)(data + 10));
+    acc[1] = satneg16(*( int16_t *)(data + 12));
+    gyr[2] =          *( int16_t *)(data + 14);
+    gyr[0] = satneg16(*( int16_t *)(data + 16));
+    gyr[1] = satneg16(*( int16_t *)(data + 18));
     data[23] = 0;
     uint32_t time = *(uint32_t *)(data + 20);
     // Gyroscope calibration
@@ -1013,12 +1019,14 @@ int main()
     buf[p++] = 0x74;
     buf[p++] = 0xD0;
     buf[p++] = 0xFD;
+  /*
     buf[p++] = 4;     // AD length
     buf[p++] = 0x08;  // Type: Shortened Local Name
     buf[p++] = 'M';
     buf[p++] = 'l';
     buf[p++] = 't';
-    buf[p++] = 13;    // AD length
+  */
+    buf[p++] = 20;    // AD length
     buf[p++] = 0xFF;  // Type: Manufacturer Specific Data
   /*
     buf[p++] = 0xFF;
@@ -1038,6 +1046,12 @@ int main()
       buf[p++] = acc[i] >> 8;
       buf[p++] = acc[i] & 0xFF;
     }
+    for (int i = 0; i < 3; i++) {
+      buf[p++] = gyr[i] >> 8;
+      buf[p++] = gyr[i] & 0xFF;
+    }
+    static int idx = 0;
+    buf[p++] = "Mlt"[(idx = (idx + 1) % 3)];
     buf[1] = p - 2;   // Payload length
 
     // Encode packet
