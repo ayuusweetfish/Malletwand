@@ -1,9 +1,19 @@
+#pragma once
+
 #include <math.h>
 
 typedef struct { float x, y; } vec2;
 typedef struct { float x, y, z; } vec3;
 typedef struct { float x, y, z, w; } quat;
 
+static inline float vec3_component(vec3 a, int d) {
+  switch (d) {
+    case 0: return a.x;
+    case 1: return a.y;
+    case 2: return a.z;
+  }
+  return 0;
+}
 static inline vec3 vec3_add(vec3 a, vec3 b) {
   return (vec3){a.x + b.x, a.y + b.y, a.z + b.z};
 }

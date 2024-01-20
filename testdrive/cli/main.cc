@@ -1,6 +1,7 @@
 // c++ % -ISimpleBLE/simpleble/include -Ibuild_simpleble/export build_simpleble/lib/libsimpleble.a -Iraylib-5.0_macos/include raylib-5.0_macos/lib/libraylib.a -std=c++17 -framework CoreBluetooth -framework Foundation -framework CoreGraphics -framework IOKit -framework AppKit
 
 #include "geom.h"
+#include "elli_fit.h"
 
 #include "simpleble/SimpleBLE.h"
 namespace rl {
@@ -25,6 +26,22 @@ std::mutex readings_mutex;
 int16_t mag_out[3], acc_out[3], gyr_out[3];
 
 int main() {
+/*
+  vec3 x[] = {
+    (vec3){-0.048768226,  0.506737186, -1.114967264},
+    (vec3){-0.366845495,  0.752516022, -0.122585893},
+    (vec3){ 0.071589973,  1.440691850, -0.870344969},
+    (vec3){ 1.200876474,  0.776673265, -0.213629012},
+    (vec3){-0.251914644,  0.337953796,  0.196076337},
+    (vec3){ 1.170570723, -0.060363077,  0.435995064},
+    (vec3){ 0.666124827,  0.707259657,  0.609291333},
+    (vec3){ 0.613461620, -0.333568854,  0.593126059},
+    (vec3){ 0.022064863,  0.593658273,  0.321310612},
+    (vec3){-0.630838399,  0.761593886, -1.133984329},
+  };
+  elli_fit(sizeof x / sizeof x[0], x, 0.01);
+  return 0;
+*/
   if (!SimpleBLE::Adapter::bluetooth_enabled()) {
     printf("Bluetooth not enabled\n");
     puts("Press Enter to exit"); getchar();
@@ -110,6 +127,7 @@ int main() {
 
   std::deque<vec3> mag_history;
   quat q_ref = (quat){0, 0, 0, 1};
+  float m_ref[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
 
   const int W = 1200;
   const int H = 640;
@@ -137,9 +155,23 @@ int main() {
       if (rl::IsKeyPressed(rl::KEY_SPACE)) {
         q_ref = rot_from_endpoints(acc, (vec3){0, 0, 1});
       }
+      if (rl::IsKeyPressed(rl::KEY_M)) {
+        // Fit an ellipsoid
+        vec3 scaled_mag[mag_history.size()];
+        for (int i = 0; i < mag_history.size(); i++)
+          scaled_mag[i] = vec3_scale(mag_history[i], 2.f / 1024);
+        printf("Estimating from %zu point(s)\n", mag_history.size());
+        elli_fit(mag_history.size(), scaled_mag, 0.01);
+        mag_history.clear();
+      }
       acc = quat_rot(q_ref, acc);
       gyr = quat_rot(q_ref, gyr);
       mag = quat_rot(q_ref, mag);
+      mag = (vec3){
+        m_ref[0][0] * mag.x + m_ref[0][1] * mag.y + m_ref[0][2] * mag.z,
+        m_ref[1][0] * mag.x + m_ref[1][1] * mag.y + m_ref[1][2] * mag.z,
+        m_ref[2][0] * mag.x + m_ref[2][1] * mag.y + m_ref[2][2] * mag.z,
+      };
 
       rl::BeginMode3D(camera);
         // maths (x, y, z) -> screen (x, -z, y)
@@ -187,7 +219,7 @@ int main() {
         float magScale = 2.f / 1024;  // unit = 0.5 G = 0.05 mT ≈ geomagnetic field
         mag_history.push_back(mag);
         if (mag_history.size() >= 500) mag_history.pop_front();
-        if (0) for (const vec3 p : mag_history) {
+        if (1) for (const vec3 p : mag_history) {
           plotPoint(
             vec3_scale(p, magScale),
             (rl::Color){24, 20, 180, 255}, false);
