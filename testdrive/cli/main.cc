@@ -24,9 +24,11 @@ namespace rl {
 
 std::mutex readings_mutex;
 int16_t mag_out[3], acc_out[3], gyr_out[3];
+bool readings_updated = false;
 
 int main() {
 /*
+  float A[3][3], c[3];
   vec3 x[] = {
     (vec3){-0.048768226,  0.506737186, -1.114967264},
     (vec3){-0.366845495,  0.752516022, -0.122585893},
@@ -39,7 +41,7 @@ int main() {
     (vec3){ 0.022064863,  0.593658273,  0.321310612},
     (vec3){-0.630838399,  0.761593886, -1.133984329},
   };
-  elli_fit(sizeof x / sizeof x[0], x, 0.01);
+  elli_fit(sizeof x / sizeof x[0], x, 0.01, A, c);
   return 0;
 */
   if (!SimpleBLE::Adapter::bluetooth_enabled()) {
@@ -116,6 +118,7 @@ int main() {
       gyr_out[0] = ((int16_t)payload[12] << 8) | payload[13];
       gyr_out[1] = ((int16_t)payload[14] << 8) | payload[15];
       gyr_out[2] = ((int16_t)payload[16] << 8) | payload[17];
+      readings_updated = true;
       readings_mutex.unlock();
     }
   };
@@ -127,7 +130,8 @@ int main() {
 
   std::deque<vec3> mag_history;
   quat q_ref = (quat){0, 0, 0, 1};
-  float m_ref[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  float m_tfm[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  vec3 m_cen = (vec3){0, 0, 0};
 
   const int W = 1200;
   const int H = 640;
@@ -148,10 +152,19 @@ int main() {
       if (rl::IsKeyDown(rl::KEY_LEFT_SHIFT) || rl::IsMouseButtonDown(rl::MOUSE_BUTTON_LEFT))
         rl::UpdateCamera(&camera, rl::CAMERA_THIRD_PERSON);
 
+      readings_mutex.lock();
       vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
       vec3 gyr = (vec3){(float)gyr_out[0], (float)gyr_out[1], (float)gyr_out[2]};
       vec3 mag = (vec3){(float)mag_out[0], (float)mag_out[1], (float)mag_out[2]};
+      // vec3 mag = (vec3){(float)mag_out[0]+1234, (float)mag_out[1]*1.5f, (float)mag_out[2]};
+      bool cur_readings_updated = readings_updated;
+      readings_updated = false;
+      readings_mutex.unlock();
 
+      float magScale = 2.f / 1024;  // unit = 0.5 G = 0.05 mT ≈ geomagnetic field
+      mag = vec3_scale(mag, magScale);
+
+      // Calibrate accelerometer before the magnetometer
       if (rl::IsKeyPressed(rl::KEY_SPACE)) {
         q_ref = rot_from_endpoints(acc, (vec3){0, 0, 1});
       }
@@ -159,19 +172,18 @@ int main() {
         // Fit an ellipsoid
         vec3 scaled_mag[mag_history.size()];
         for (int i = 0; i < mag_history.size(); i++)
-          scaled_mag[i] = vec3_scale(mag_history[i], 2.f / 1024);
-        printf("Estimating from %zu point(s)\n", mag_history.size());
-        elli_fit(mag_history.size(), scaled_mag, 0.01);
+          scaled_mag[i] = mag_history[i];
+        printf("Calibrating from %zu point(s)\n", mag_history.size());
+        float c[3];
+        elli_fit(mag_history.size(), scaled_mag, 0.01, m_tfm, c);
+        m_cen = (vec3){c[0], c[1], c[2]};
         mag_history.clear();
       }
       acc = quat_rot(q_ref, acc);
       gyr = quat_rot(q_ref, gyr);
       mag = quat_rot(q_ref, mag);
-      mag = (vec3){
-        m_ref[0][0] * mag.x + m_ref[0][1] * mag.y + m_ref[0][2] * mag.z,
-        m_ref[1][0] * mag.x + m_ref[1][1] * mag.y + m_ref[1][2] * mag.z,
-        m_ref[2][0] * mag.x + m_ref[2][1] * mag.y + m_ref[2][2] * mag.z,
-      };
+      vec3 mag_raw = mag;
+      mag = vec3_transform(m_tfm, vec3_diff(mag_raw, m_cen));
 
       rl::BeginMode3D(camera);
         // maths (x, y, z) -> screen (x, -z, y)
@@ -216,16 +228,15 @@ int main() {
           vec3_scale(gyr, gyrScale),
           (rl::Color){150, 20, 210, 255});
 
-        float magScale = 2.f / 1024;  // unit = 0.5 G = 0.05 mT ≈ geomagnetic field
-        mag_history.push_back(mag);
+        if (cur_readings_updated) mag_history.push_back(mag_raw);
         if (mag_history.size() >= 500) mag_history.pop_front();
         if (1) for (const vec3 p : mag_history) {
           plotPoint(
-            vec3_scale(p, magScale),
+            vec3_transform(m_tfm, vec3_diff(p, m_cen)),
             (rl::Color){24, 20, 180, 255}, false);
         }
         plotPoint(
-          vec3_scale(mag, magScale),
+          mag,
           (rl::Color){24, 20, 180, 255});
       rl::EndMode3D();
     rl::EndDrawing();

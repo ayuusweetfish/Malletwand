@@ -4,8 +4,31 @@
 #include <stdio.h>
 
 void eig_sym(const float *const A, float *ev, float *d, uint16_t row);
+void inv_mat3_sym(const float A[3][3], float inv[3][3])
+{
+  float det =
+    + A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1])
+    - A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0])
+    + A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+  float adj[3][3] = {{
+    +(A[1][1] * A[2][2] - A[2][1] * A[1][2]),
+    -(A[0][1] * A[2][2] - A[2][1] * A[0][2]),
+    +(A[0][1] * A[1][2] - A[1][1] * A[0][2]),
+  }, {
+    0, // -(A[1][0] * A[2][2] - A[2][0] * A[1][2]),
+    +(A[0][0] * A[2][2] - A[2][0] * A[0][2]),
+    -(A[0][0] * A[1][2] - A[1][0] * A[0][2]),
+  }, {
+    0, // +(A[1][0] * A[2][1] - A[2][0] * A[1][1]),
+    0, // -(A[0][0] * A[2][1] - A[2][0] * A[0][1]),
+    +(A[0][0] * A[1][1] - A[1][0] * A[0][1]),
+  }};
+  for (int i = 0; i < 3; i++)
+    for (int j = i; j < 3; j++)
+      inv[j][i] = inv[i][j] = (adj[i][j] / det);
+}
 
-void elli_fit(int m, const vec3 *x, double σ)
+void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
 {
   static double t[3000][3][5];
   for (int i = 0; i < m; i++) {
@@ -92,25 +115,8 @@ void elli_fit(int m, const vec3 *x, double σ)
   d_est = eigenvectors[9][neg_most] / ev_norm;
 
   // Inverse of A_est
-  float a_det =
-    + a_est[0][0] * (a_est[1][1] * a_est[2][2] - a_est[1][2] * a_est[2][1])
-    - a_est[0][1] * (a_est[1][0] * a_est[2][2] - a_est[1][2] * a_est[2][0])
-    + a_est[0][2] * (a_est[1][0] * a_est[2][1] - a_est[1][1] * a_est[2][0]);
-  float a_inv[3][3] = {{
-    +(a_est[1][1] * a_est[2][2] - a_est[2][1] * a_est[1][2]),
-    -(a_est[0][1] * a_est[2][2] - a_est[2][1] * a_est[0][2]),
-    +(a_est[0][1] * a_est[1][2] - a_est[1][1] * a_est[0][2]),
-  }, {
-    0,
-    +(a_est[0][0] * a_est[2][2] - a_est[2][0] * a_est[0][2]),
-    -(a_est[0][0] * a_est[1][2] - a_est[1][0] * a_est[0][2]),
-  }, {
-    0, 0,
-    +(a_est[0][0] * a_est[1][1] - a_est[1][0] * a_est[0][1]),
-  }};
-  for (int i = 0; i < 3; i++)
-    for (int j = i; j < 3; j++)
-      a_inv[i][j] = a_inv[j][i] = (a_inv[i][j] / a_det);
+  float a_inv[3][3];
+  inv_mat3_sym(a_est, a_inv);
   /* for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++)
       printf("%9.5f%c", a_inv[i][j], j == 2 ? '\n' : ' '); */
@@ -157,10 +163,16 @@ void elli_fit(int m, const vec3 *x, double σ)
       for (int k = 0; k < 3; k++)
         a_tfm[i][j] += d_eigenvectors[i][k] * d_eigenvectors[j][k] * d_lambda[k];
   }
+  /* for (int i = 0; i < 3; i++)
+    for (int j = 0; j < 3; j++)
+      printf("%9.5f%c", a_tfm[i][j], j == 2 ? '\n' : ' '); */
+
+  inv_mat3_sym(a_tfm, inv_tfm);
   for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++)
-      printf("%9.5f%c", a_tfm[i][j], j == 2 ? '\n' : ' ');
-  // TODO: Return the inverse of A_tfm
+      printf("%9.5f%c", inv_tfm[i][j], j == 2 ? '\n' : ' ');
+  for (int i = 0; i < 3; i++) c[i] = c_est[i];
+  for (int i = 0; i < 3; i++) printf("%9.5f%c", c[i], i == 2 ? '\n' : ' ');
 }
 
 // https://github.com/swedishembedded/control/blob/5327a24485f246f20cc79f98427bd330cb8c2b37/src/linalg/eig_sym.c

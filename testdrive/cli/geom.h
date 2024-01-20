@@ -166,3 +166,11 @@ static inline quat quat_minorarc(quat from, quat to) {
 static inline quat quat_slerp(quat a, quat b, float t) {
   return quat_mul(quat_pow(quat_minorarc(a, b), t), a);
 }
+
+static inline vec3 vec3_transform(float A[3][3], vec3 a) {
+  return (vec3){
+    A[0][0] * a.x + A[0][1] * a.y + A[0][2] * a.z,
+    A[1][0] * a.x + A[1][1] * a.y + A[1][2] * a.z,
+    A[2][0] * a.x + A[2][1] * a.y + A[2][2] * a.z,
+  };
+}
