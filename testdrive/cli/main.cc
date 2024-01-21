@@ -74,7 +74,7 @@ int main() {
       if (c == 'M' || c == 'l' || c == 't') {
         if (c != last) {
           count += 1;
-          if (count >= 5) return true;
+          if (count >= 7) return true;
           last = c;
         }
         return 0;
@@ -164,7 +164,12 @@ int main() {
       float magScale = 2.f / 1024;  // unit = 0.5 G = 0.05 mT ≈ geomagnetic field
       mag = vec3_scale(mag, magScale);
 
-      // Calibrate accelerometer before the magnetometer
+      vec3 acc_raw = acc;
+      vec3 gyr_raw = gyr;
+      vec3 mag_raw = mag;
+
+      // Accelerometer and magnetometer calibration are disjoint
+      // and can be carried out in any order
       if (rl::IsKeyPressed(rl::KEY_SPACE)) {
         q_ref = rot_from_endpoints(acc, (vec3){0, 0, 1});
       }
@@ -172,18 +177,17 @@ int main() {
         // Fit an ellipsoid
         vec3 scaled_mag[mag_history.size()];
         for (int i = 0; i < mag_history.size(); i++)
-          scaled_mag[i] = mag_history[i];
+          scaled_mag[i] = quat_rot(q_ref, mag_history[i]);
         printf("Calibrating from %zu point(s)\n", mag_history.size());
         float c[3];
         elli_fit(mag_history.size(), scaled_mag, 0.01, m_tfm, c);
         m_cen = (vec3){c[0], c[1], c[2]};
         mag_history.clear();
       }
-      acc = quat_rot(q_ref, acc);
-      gyr = quat_rot(q_ref, gyr);
-      mag = quat_rot(q_ref, mag);
-      vec3 mag_raw = mag;
-      mag = vec3_transform(m_tfm, vec3_diff(mag_raw, m_cen));
+      acc = quat_rot(q_ref, acc_raw);
+      gyr = quat_rot(q_ref, gyr_raw);
+      mag = quat_rot(q_ref, mag_raw);
+      mag = vec3_transform(m_tfm, vec3_diff(mag, m_cen));
 
       rl::BeginMode3D(camera);
         // maths (x, y, z) -> screen (x, -z, y)
@@ -230,9 +234,9 @@ int main() {
 
         if (cur_readings_updated) mag_history.push_back(mag_raw);
         if (mag_history.size() >= 500) mag_history.pop_front();
-        if (1) for (const vec3 p : mag_history) {
+        if (0) for (const vec3 p : mag_history) {
           plotPoint(
-            vec3_transform(m_tfm, vec3_diff(p, m_cen)),
+            vec3_transform(m_tfm, vec3_diff(quat_rot(q_ref, p), m_cen)),
             (rl::Color){24, 20, 180, 255}, false);
         }
         plotPoint(
