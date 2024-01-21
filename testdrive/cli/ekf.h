@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+#define restrict __restrict
+#endif
+
 #include <math.h>
 
 #define idx(_nrows, _ncols, _row, _col) ((_row)*(_ncols) + (_col))

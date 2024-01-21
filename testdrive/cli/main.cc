@@ -2,6 +2,7 @@
 
 #include "geom.h"
 #include "elli_fit.h"
+#include "ekf.h"
 
 #include "simpleble/SimpleBLE.h"
 namespace rl {
@@ -157,6 +158,15 @@ int main() {
   float m_tfm[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
   vec3 m_cen = (vec3){0, 0, 0};
 
+  float ekf_x[5] = {40, 1, 0, 1, 0};
+  float ekf_P[5][5] = {
+    {30, 0, 0, 0, 0},
+    {0, 1, 0, 0, 0},
+    {0, 0, 4, 0, 0},
+    {0, 0, 0, 1, 0},
+    {0, 0, 0, 0, 4},
+  };
+
   const int W = 1200;
   const int H = 640;
   rl::InitWindow(W, H, "Malletwand test");
@@ -220,6 +230,12 @@ int main() {
         float xy_ori = -atan2f(mag_upright_g.y, mag_upright_g.x);
         static struct filter xy_f;
         xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
+
+        vec3 gyr_calibrated =
+          vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), 1.f / (16.384 * 360));
+        float z[2] = {gyr_calibrated.x, gyr_calibrated.y};
+        ekf_step(ekf_x, ekf_P, z);
+        // printf("%.7f\n", ekf_x[2]);
       }
 
       rl::BeginMode3D(camera);
@@ -292,13 +308,22 @@ int main() {
           (vec3){cosf(xy_ori_filtered), sinf(xy_ori_filtered), 0},
           (rl::Color){24, 20, 180, 255});
 
+        static float last_phase = 0;
+        if (ekf_x[2] < last_phase) puts("=========");
+        printf("%.7f\n", ekf_x[2]);
+        last_phase = ekf_x[2];
+        plotLine(
+          (vec3){0, 0, 0},
+          (vec3){cosf(ekf_x[2]) * 2, sinf(ekf_x[2]) * 2, 0},
+          (rl::Color){220, 70, 40, 255});
+
         plotPoint(
           vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale),
           (rl::Color){230, 120, 60, 255});
         plotPoint(
           vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale),
           (rl::Color){200, 70, 240, 255});
-        if (cur_readings_updated) {
+        if (0 && cur_readings_updated) {
           vec3 gyr_calibrated =
             vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale);
           printf("%.8f %.8f %.8f\n",
