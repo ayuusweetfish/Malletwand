@@ -39,7 +39,7 @@ static inline float filter_update(
   if (th > f->i2 + M_PI) th -= M_PI * 2;
   float x1 = f->i2 - th;
   f->i1 += x1 * 1.f/100;
-  const float omega = 12.0f;
+  const float omega = 24.0f;
   float x2 = 1.0f * omega * f->i1 + 1.414f * omega * x1;
   float x3 = thd - x2;
   f->i2 += x3 * 1.f/100;
@@ -129,7 +129,7 @@ int main() {
       payload[0] = x & 0xff;
       payload[1] = (x >> 8) & 0xff;
       for (int i = 0; i < y.length(); i++) payload[i + 2] = (uint8_t)y[i];
-      for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
+      // for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
       readings_mutex.lock();
       mag_out[0] = ((int16_t)payload[ 0] << 8) | payload[ 1];
       mag_out[1] = ((int16_t)payload[ 2] << 8) | payload[ 3];
@@ -142,7 +142,7 @@ int main() {
       gyr_out[2] = ((int16_t)payload[16] << 8) | payload[17];
       if (mag_out[0] != 0x7fff || mag_out[1] != 0x7fff || mag_out[2] != 0x7fff)
         readings_updated = true;
-      else puts("Ignorintg invalid data at startup");
+      else puts("Ignoring invalid data at startup");
       readings_mutex.unlock();
     }
   };
@@ -180,7 +180,6 @@ int main() {
       vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
       vec3 gyr = (vec3){(float)gyr_out[0], (float)gyr_out[1], (float)gyr_out[2]};
       vec3 mag = (vec3){(float)mag_out[0], (float)mag_out[1], (float)mag_out[2]};
-      // vec3 mag = (vec3){(float)mag_out[0]+1234, (float)mag_out[1]*1.5f, (float)mag_out[2]};
       bool cur_readings_updated = readings_updated;
       readings_updated = false;
       readings_mutex.unlock();
@@ -262,9 +261,11 @@ int main() {
         };
 
         float accScale = 1.f / 8192;  // unit = 1g
+        /*
         plotPoint(
           vec3_scale(acc, accScale),
           (rl::Color){120, 60, 0, 255});
+        */
 
         float gyrScale = 1.f / (16.384 * 360);  // unit = 1 rps
         plotPoint(
@@ -278,16 +279,33 @@ int main() {
             vec3_transform(m_tfm, vec3_diff(quat_rot(q_ref, p), m_cen)),
             (rl::Color){24, 20, 180, 255}, false);
         }
+        /*
         plotPoint(
           mag,
           (rl::Color){24, 20, 180, 255});
         plotPoint(
           mag_upright_g,
           (rl::Color){24, 60, 150, 255});
+        */
         plotLine(
           (vec3){0, 0, 0},
           (vec3){cosf(xy_ori_filtered), sinf(xy_ori_filtered), 0},
           (rl::Color){24, 20, 180, 255});
+
+        plotPoint(
+          vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale),
+          (rl::Color){230, 120, 60, 255});
+        plotPoint(
+          vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale),
+          (rl::Color){200, 70, 240, 255});
+        if (cur_readings_updated) {
+          vec3 gyr_calibrated =
+            vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale);
+          printf("%.8f %.8f %.8f\n",
+            vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale).z,
+            gyr_calibrated.x, gyr_calibrated.y
+          );
+        }
       rl::EndMode3D();
     rl::EndDrawing();
   }
