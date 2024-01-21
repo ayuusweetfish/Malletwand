@@ -96,7 +96,7 @@ int main() {
       if (c == 'M' || c == 'l' || c == 't') {
         if (c != last) {
           count += 1;
-          if (count >= 7) return true;
+          if (count >= 5) return true;
           last = c;
         }
         return 0;
@@ -140,7 +140,9 @@ int main() {
       gyr_out[0] = ((int16_t)payload[12] << 8) | payload[13];
       gyr_out[1] = ((int16_t)payload[14] << 8) | payload[15];
       gyr_out[2] = ((int16_t)payload[16] << 8) | payload[17];
-      readings_updated = true;
+      if (mag_out[0] != 0x7fff || mag_out[1] != 0x7fff || mag_out[2] != 0x7fff)
+        readings_updated = true;
+      else puts("Ignorintg invalid data at startup");
       readings_mutex.unlock();
     }
   };
@@ -211,10 +213,15 @@ int main() {
       mag = quat_rot(q_ref, mag_raw);
       mag = vec3_transform(m_tfm, vec3_diff(mag, m_cen));
 
-      float xy_ori_d = gyr.z / (16.384 * 180) * M_PI;
-      float xy_ori = -atan2f(mag.y, mag.x);
-      static struct filter xy_f;
-      float xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
+      vec3 mag_upright_g = quat_rot(rot_from_endpoints(acc, (vec3){0, 0, 1}), mag);
+
+      static float xy_ori_filtered = 0;
+      if (cur_readings_updated) {
+        float xy_ori_d = gyr.z / (16.384 * 180) * M_PI;
+        float xy_ori = -atan2f(mag_upright_g.y, mag_upright_g.x);
+        static struct filter xy_f;
+        xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
+      }
 
       rl::BeginMode3D(camera);
         // maths (x, y, z) -> screen (x, -z, y)
@@ -274,6 +281,9 @@ int main() {
         plotPoint(
           mag,
           (rl::Color){24, 20, 180, 255});
+        plotPoint(
+          mag_upright_g,
+          (rl::Color){24, 60, 150, 255});
         plotLine(
           (vec3){0, 0, 0},
           (vec3){cosf(xy_ori_filtered), sinf(xy_ori_filtered), 0},
