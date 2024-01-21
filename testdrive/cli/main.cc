@@ -9,6 +9,7 @@ namespace rl {
 }
 
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstdint>
 #if defined(WIN32) || defined(_WIN32)
@@ -25,6 +26,27 @@ namespace rl {
 std::mutex readings_mutex;
 int16_t mag_out[3], acc_out[3], gyr_out[3];
 bool readings_updated = false;
+
+struct filter {
+  float i1, i2;
+};
+
+static inline float filter_update(
+  struct filter *f,
+  float th, float thd
+) {
+  if (th < f->i2 - M_PI) th += M_PI * 2;
+  if (th > f->i2 + M_PI) th -= M_PI * 2;
+  float x1 = f->i2 - th;
+  f->i1 += x1 * 1.f/100;
+  const float omega = 12.0f;
+  float x2 = 1.0f * omega * f->i1 + 1.414f * omega * x1;
+  float x3 = thd - x2;
+  f->i2 += x3 * 1.f/100;
+  if (f->i2 >  M_PI) f->i2 -= M_PI * 2;
+  if (f->i2 < -M_PI) f->i2 += M_PI * 2;
+  return f->i2;
+}
 
 int main() {
 /*
@@ -189,6 +211,11 @@ int main() {
       mag = quat_rot(q_ref, mag_raw);
       mag = vec3_transform(m_tfm, vec3_diff(mag, m_cen));
 
+      float xy_ori_d = gyr.z / (16.384 * 180) * M_PI;
+      float xy_ori = -atan2f(mag.y, mag.x);
+      static struct filter xy_f;
+      float xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
+
       rl::BeginMode3D(camera);
         // maths (x, y, z) -> screen (x, -z, y)
         // screen (x, y, z) -> maths (x, z, -y)
@@ -221,6 +248,11 @@ int main() {
             rl::DrawCubeWiresV((rl::Vector3){p.x/2, p.y/2, p.z/2}, p, c);
           }
         };
+        auto plotLine = [] (vec3 a, vec3 b, rl::Color c) -> void {
+          rl::Vector3 pa = (rl::Vector3){a.x, a.z, -a.y};
+          rl::Vector3 pb = (rl::Vector3){b.x, b.z, -b.y};
+          rl::DrawLine3D(pa, pb, c);
+        };
 
         float accScale = 1.f / 8192;  // unit = 1g
         plotPoint(
@@ -241,6 +273,10 @@ int main() {
         }
         plotPoint(
           mag,
+          (rl::Color){24, 20, 180, 255});
+        plotLine(
+          (vec3){0, 0, 0},
+          (vec3){cosf(xy_ori_filtered), sinf(xy_ori_filtered), 0},
           (rl::Color){24, 20, 180, 255});
       rl::EndMode3D();
     rl::EndDrawing();
