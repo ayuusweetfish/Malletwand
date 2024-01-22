@@ -310,7 +310,7 @@ int main() {
 
         static float last_phase = 0;
         if (ekf_x[2] < last_phase) puts("=========");
-        printf("%.7f\n", ekf_x[2]);
+        printf("%.7f %.7f\n", ekf_x[2], ekf_x[4]);
         last_phase = ekf_x[2];
         plotLine(
           (vec3){0, 0, 0},
