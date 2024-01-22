@@ -698,6 +698,7 @@ int main()
 
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 
+#if 0
   float x[5] = {40, 1, 0, 1, 0};
   float P[5][5] = {
     {30, 0, 0, 0, 0},
@@ -718,7 +719,7 @@ int main()
   // end 1366 (processed 200) 631
   while (1) { }
 
-#if 0
+#else
   // ======== LED Timers ========
   // APB1 = 16 MHz
   // period = 4 kHz = 4000 cycles

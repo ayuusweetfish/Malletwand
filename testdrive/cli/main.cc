@@ -309,13 +309,28 @@ int main() {
           (rl::Color){24, 20, 180, 255});
 
         static float last_phase = 0;
-        if (ekf_x[2] < last_phase) puts("=========");
-        printf("%.7f %.7f\n", ekf_x[2], ekf_x[4]);
-        last_phase = ekf_x[2];
+        float ω = ekf_x[0];
+        float A = ekf_x[1];
+        float θ = ekf_x[2];
+        float B = ekf_x[3];
+        float ϕ = ekf_x[4];
+        float δ = atan2(A*A + B*B * cosf(2*ϕ), -B*B * sinf(2*ϕ));
+        float cen_phase = -0.5 * δ + 0.25 * M_PI;
+        printf("%.7f %.7f\n", θ, cen_phase);
+        if ((last_phase - cen_phase) * (θ - cen_phase) < 0)
+          puts("==================");
+        last_phase = θ;
         plotLine(
           (vec3){0, 0, 0},
           (vec3){cosf(ekf_x[2]) * 2, sinf(ekf_x[2]) * 2, 0},
           (rl::Color){220, 70, 40, 255});
+        plotLine(
+          (vec3){cosf(cen_phase) *-2, sinf(cen_phase) *-2, 0},
+          (vec3){cosf(cen_phase) * 2, sinf(cen_phase) * 2, 0},
+          (rl::Color){160, 40, 40, 255});
+        plotPoint(
+          (vec3){A * cosf(θ), B * cosf(θ + ϕ), 0},
+          (rl::Color){255, 0, 255, 255});
 
         plotPoint(
           vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale),
