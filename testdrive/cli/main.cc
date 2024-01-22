@@ -130,7 +130,7 @@ int main() {
       payload[0] = x & 0xff;
       payload[1] = (x >> 8) & 0xff;
       for (int i = 0; i < y.length(); i++) payload[i + 2] = (uint8_t)y[i];
-      // for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
+      for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
       readings_mutex.lock();
       mag_out[0] = ((int16_t)payload[ 0] << 8) | payload[ 1];
       mag_out[1] = ((int16_t)payload[ 2] << 8) | payload[ 3];
@@ -141,7 +141,10 @@ int main() {
       gyr_out[0] = ((int16_t)payload[12] << 8) | payload[13];
       gyr_out[1] = ((int16_t)payload[14] << 8) | payload[15];
       gyr_out[2] = ((int16_t)payload[16] << 8) | payload[17];
-      if (mag_out[0] != 0x7fff || mag_out[1] != 0x7fff || mag_out[2] != 0x7fff)
+      if ((mag_out[0] != 0x7fff || mag_out[1] != 0x7fff || mag_out[2] != 0x7fff)
+        && (acc_out[0] != 0x0000 || acc_out[1] != 0x0000 || acc_out[2] != 0x0000
+         || gyr_out[0] != 0x0000 || gyr_out[1] != 0x0000 || gyr_out[2] != 0x0000)
+      )
         readings_updated = true;
       else puts("Ignoring invalid data at startup");
       readings_mutex.unlock();
@@ -167,6 +170,8 @@ int main() {
     {0, 0, 0, 0, 4},
   };
 
+  bool disp_verbose = true;
+
   const int W = 1200;
   const int H = 640;
   rl::InitWindow(W, H, "Malletwand test");
@@ -185,6 +190,9 @@ int main() {
 
       if (rl::IsKeyDown(rl::KEY_LEFT_SHIFT) || rl::IsMouseButtonDown(rl::MOUSE_BUTTON_LEFT))
         rl::UpdateCamera(&camera, rl::CAMERA_THIRD_PERSON);
+
+      if (rl::IsKeyPressed(rl::KEY_TAB))
+        disp_verbose ^= 1;
 
       readings_mutex.lock();
       vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
@@ -284,9 +292,11 @@ int main() {
         */
 
         float gyrScale = 1.f / (16.384 * 360);  // unit = 1 rps
-        plotPoint(
-          vec3_scale(gyr, gyrScale),
-          (rl::Color){150, 20, 210, 255});
+        if (disp_verbose) {
+          plotPoint(
+            vec3_scale(gyr, gyrScale),
+            (rl::Color){150, 20, 210, 255});
+        }
 
         if (cur_readings_updated) mag_history.push_back(mag_raw);
         if (mag_history.size() >= 500) mag_history.pop_front();
@@ -295,18 +305,20 @@ int main() {
             vec3_transform(m_tfm, vec3_diff(quat_rot(q_ref, p), m_cen)),
             (rl::Color){24, 20, 180, 255}, false);
         }
-        /*
-        plotPoint(
-          mag,
-          (rl::Color){24, 20, 180, 255});
-        plotPoint(
-          mag_upright_g,
-          (rl::Color){24, 60, 150, 255});
-        */
-        plotLine(
-          (vec3){0, 0, 0},
-          (vec3){cosf(xy_ori_filtered), sinf(xy_ori_filtered), 0},
-          (rl::Color){24, 20, 180, 255});
+        if (disp_verbose) {
+          /*
+          plotPoint(
+            mag,
+            (rl::Color){24, 20, 180, 255});
+          plotPoint(
+            mag_upright_g,
+            (rl::Color){24, 60, 150, 255});
+          */
+          plotLine(
+            (vec3){0, 0, 0},
+            (vec3){cosf(xy_ori_filtered), sinf(xy_ori_filtered), 0},
+            (rl::Color){24, 20, 180, 255});
+        }
 
         static float last_phase = 0;
         float ω = ekf_x[0];
@@ -317,34 +329,46 @@ int main() {
         float δ = atan2(A*A + B*B * cosf(2*ϕ), -B*B * sinf(2*ϕ));
         float cen_phase = -0.5 * δ + 0.25 * M_PI;
         printf("%.7f %.7f\n", θ, cen_phase);
-        if ((last_phase - cen_phase) * (θ - cen_phase) < 0)
-          puts("==================");
         last_phase = θ;
+        /*
         plotLine(
           (vec3){0, 0, 0},
-          (vec3){cosf(ekf_x[2]) * 2, sinf(ekf_x[2]) * 2, 0},
+          (vec3){cosf(θ) * 2, sinf(θ) * 2, 0},
           (rl::Color){220, 70, 40, 255});
         plotLine(
           (vec3){cosf(cen_phase) *-2, sinf(cen_phase) *-2, 0},
           (vec3){cosf(cen_phase) * 2, sinf(cen_phase) * 2, 0},
           (rl::Color){160, 40, 40, 255});
+        */
+        plotLine(
+          (vec3){cosf(cen_phase - θ) *-2, sinf(cen_phase - θ) *-2, 0},
+          (vec3){cosf(cen_phase - θ) * 2, sinf(cen_phase - θ) * 2, 0},
+          (rl::Color){160, 40, 40, 255});
+        plotPoint((vec3){ 1.2, 0, 0}, (rl::Color){160, 160, 160, 255}, false);
+        plotPoint((vec3){-1.2, 0, 0}, (rl::Color){160, 160, 160, 255}, false);
         plotPoint(
-          (vec3){A * cosf(θ), B * cosf(θ + ϕ), 0},
-          (rl::Color){255, 0, 255, 255});
+          (vec3){cosf(cen_phase - θ) * 1.2f, sinf(cen_phase - θ) * 1.2f, 0},
+          (rl::Color){160, 40, 40, 255}, false);
 
-        plotPoint(
-          vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale),
-          (rl::Color){230, 120, 60, 255});
-        plotPoint(
-          vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale),
-          (rl::Color){200, 70, 240, 255});
-        if (0 && cur_readings_updated) {
-          vec3 gyr_calibrated =
-            vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale);
-          printf("%.8f %.8f %.8f\n",
-            vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale).z,
-            gyr_calibrated.x, gyr_calibrated.y
-          );
+        if (disp_verbose) {
+          plotPoint(
+            (vec3){A * cosf(θ), B * cosf(θ + ϕ), 0},
+            (rl::Color){255, 0, 255, 255});
+
+          plotPoint(
+            vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale),
+            (rl::Color){230, 120, 60, 255});
+          plotPoint(
+            vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale),
+            (rl::Color){200, 70, 240, 255});
+          if (0 && cur_readings_updated) {
+            vec3 gyr_calibrated =
+              vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), gyrScale);
+            printf("%.8f %.8f %.8f\n",
+              vec3_scale(vec_rot(acc, (vec3){0, 0, 1}, xy_ori_filtered), accScale).z,
+              gyr_calibrated.x, gyr_calibrated.y
+            );
+          }
         }
       rl::EndMode3D();
     rl::EndDrawing();
