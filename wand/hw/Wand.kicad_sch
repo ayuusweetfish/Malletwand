@@ -5066,7 +5066,7 @@
     (property "Reference" "Q2" (at 227.965 151.765 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Value" "Si2301" (at 227.965 154.305 0)
+    (property "Value" "Si2302" (at 227.965 154.305 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Footprint" "Package_TO_SOT_SMD:SOT-23" (at 226.695 150.495 0)
