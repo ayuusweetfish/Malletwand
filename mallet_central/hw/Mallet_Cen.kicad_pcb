@@ -3544,6 +3544,8 @@
     )
   )
 
+  (gr_rect (start 38.35 72.15) (end 43.35 77.15)
+    (stroke (width 0.01) (type solid)) (fill solid) (layer "B.SilkS") (tstamp 4fb80954-ad17-41c6-a344-1e4eaff4ee86))
   (gr_circle (center 74.2 63.1) (end 74.35 63.1)
     (stroke (width 0.01) (type solid)) (fill solid) (layer "F.SilkS") (tstamp 0d6ffa5d-e878-44b9-91a1-e9dbcd7b9aa7))
   (gr_line (start 68.325 58.2) (end 68.625 58.3)
@@ -3590,9 +3592,6 @@
     (stroke (width 0.1) (type default)) (layer "Edge.Cuts") (tstamp ea9ca288-1492-429b-a739-63e3579b288b))
   (gr_line (start 38.55 55.5) (end 84.55 55.5)
     (stroke (width 0.1) (type default)) (layer "Edge.Cuts") (tstamp f807bb16-c775-420c-b937-47c541975bc9))
-  (gr_text "JLCJLCJLCJLC" (at 48.15 77.7) (layer "B.SilkS") (tstamp 79ce075c-67b7-467c-ad98-def12e097242)
-    (effects (font (size 1 1) (thickness 0.15)) (justify left bottom mirror))
-  )
   (gr_text "SCL" (at 73.9 75.6 -270) (layer "F.SilkS") (tstamp 2d9bbaac-216c-4023-9229-4689a6a5e634)
     (effects (font (size 0.8 0.8) (thickness 0.2) bold) (justify left))
   )
