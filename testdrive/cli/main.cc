@@ -320,6 +320,12 @@ int main() {
             (rl::Color){24, 20, 180, 255});
         }
 
+        float P_F = 0;
+        for (int i = 0; i < 5; i++)
+          for (int j = 0; j < 5; j++)
+            P_F += ekf_P[i][j] * ekf_P[i][j];
+        printf("%.7f\n", sqrtf(P_F));
+
         static float last_phase = 0;
         float ω = ekf_x[0];
         float A = ekf_x[1];
@@ -328,7 +334,7 @@ int main() {
         float ϕ = ekf_x[4];
         float δ = atan2(A*A + B*B * cosf(2*ϕ), -B*B * sinf(2*ϕ));
         float cen_phase = -0.5 * δ + 0.25 * M_PI;
-        printf("%.7f %.7f\n", θ, cen_phase);
+        // printf("%.7f %.7f %.7f\n", θ, cen_phase, P_F);
         last_phase = θ;
         /*
         plotLine(

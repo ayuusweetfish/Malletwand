@@ -43,28 +43,6 @@ static inline void mat_mul(
     }
 }
 
-/*
-static inline void mat_inv(
-  int n,
-  float *restrict b,        // n * n
-  const float *restrict a   // n * n
-) {
-  float s[64];
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++)
-      s[idx(n, n*2, i, j)] = a[idx(n, n, i, j)];
-    for (int j = 0; j < n; j++)
-      s[idx(n, n*2, i, j+n)] = (i == j);
-  }
-  for (int i = 0; i < n; i++) {
-    int pivot = i;
-    float pivot_val = fabsf(s[idx(n, n*2, i, i)]);
-  }
-  mat_print(n, n, a);
-  mat_print(n, n*2, s);
-}
-*/
-
 void ekf_step(float x[5], float P[5][5], const float z[2]) {
   float ω = x[0];
   float A = x[1];
@@ -78,18 +56,6 @@ void ekf_step(float x[5], float P[5][5], const float z[2]) {
   B = fabs(B);
   if (θ > M_PI * 2) θ -= M_PI * 2; else if (θ < 0) θ += M_PI * 2;
   if (ϕ > M_PI * 2) ϕ -= M_PI * 2; else if (ϕ < 0) ϕ += M_PI * 2;
-
-  float Q[5][5] = {
-    {1e-2, 0, 0, 0, 0},
-    {0, 1e-4, 0, 0, 0},
-    {0, 0, 1e-2, 0, 0},
-    {0, 0, 0, 1e-4, 0},
-    {0, 0, 0, 0, 1e-2},
-  };
-  float R[2][2] = {
-    {0.1, 0},
-    {0, 0.08},
-  };
 
   float x1[5] = {
     ω,
@@ -105,19 +71,28 @@ void ekf_step(float x[5], float P[5][5], const float z[2]) {
     {0, 0, 0, 1, 0},
     {0, 0, 0, 0, 1},
   };
-  float Ft[5][5];
-  mat_transpose(5, 5, (float *)Ft, (float *)F);
-  float P1[5][5], tmpA[5][5], tmpB[5][5];
-  mat_mul(5, 5, 5, (float *)tmpA, (float *)P, (float *)Ft);
-  mat_mul(5, 5, 5, (float *)tmpB, (float *)F, (float *)tmpA);
+  float P1[5][5];
+  // P1 = F P F^T
   for (int i = 0; i < 5; i++)
-    for (int j = 0; j < 5; j++)
-      P1[i][j] = tmpB[i][j] + Q[i][j];
+    for (int j = 0; j < 5; j++) P1[i][j] = P[i][j];
+  for (int i = 0; i < 5; i++) P1[2][i] += P[0][i] * dt;
+  for (int i = 0; i < 5; i++) P1[i][2] += P[i][0] * dt;
+  P1[2][2] += P[0][0] * (dt * dt);
+  // P1 += Q
 /*
-  printf("P = \n"); mat_print(5, 5, P);
-  printf("F = \n"); mat_print(5, 5, F);
-  printf("P1 = \n"); mat_print(5, 5, P1);
+  float Q[5][5] = {
+    {1e-2, 0, 0, 0, 0},
+    {0, 1e-4, 0, 0, 0},
+    {0, 0, 1e-2, 0, 0},
+    {0, 0, 0, 1e-4, 0},
+    {0, 0, 0, 0, 1e-2},
+  };
 */
+  P1[0][0] += 1e-2f;
+  P1[1][1] += 1e-4f;
+  P1[2][2] += 1e-2f;
+  P1[3][3] += 1e-4f;
+  P1[4][4] += 1e-2f;
 
   float A_1 = x1[1];
   float θ_1 = x1[2];
@@ -131,6 +106,10 @@ void ekf_step(float x[5], float P[5][5], const float z[2]) {
     {0, cosf(θ_1), A_1 * -sinf(θ_1), 0, 0},
     {0, 0, B_1 * -sinf(θ_1 + ϕ_1), cosf(θ_1 + ϕ_1), B_1 * -sinf(θ_1 + ϕ_1)},
   };
+  float H01 = H[0][1];
+  float H02 = H[0][2];
+  float H12 = H[1][2];
+  float H13 = H[1][3];
   float y[2] = {
     z[0] - h[0],
     z[1] - h[1],
@@ -138,24 +117,33 @@ void ekf_step(float x[5], float P[5][5], const float z[2]) {
 
   float S[2][2];
   float Ht[5][2];
+  float tmpA[5][5];
   mat_transpose(2, 5, (float *)Ht, (float *)H);
-  mat_mul(5, 5, 2, (float *)tmpA, (float *)P1, (float *)Ht);
-  mat_mul(2, 5, 2, (float *)S, (float *)H, (float *)tmpA);
-  for (int i = 0; i < 2; i++)
-    for (int j = 0; j < 2; j++)
-      S[i][j] += R[i][j];
+  // S = H P1 H^T
+  S[0][0] = H01 * (H01 * P1[1][1] + H02 * P1[2][1]) +
+            H02 * (H01 * P1[1][2] + H02 * P1[2][2]);
+  S[0][1] = H12 * (H01 * (P1[1][2] + P1[1][4]) + H02 * (P1[2][2] + P1[2][4])) +
+            H13 * (H01 * P1[1][3] + H02 * P1[2][3]);
+  S[1][0] = H01 * (H12 * (P1[2][1] + P1[4][1]) + H13 * P1[3][1]) +
+            H02 * (H12 * (P1[2][2] + P1[4][2]) + H13 * P1[3][2]);
+  S[1][1] = H12 * (H12 * (P1[2][2] + P1[4][2] + P1[2][4] + P1[4][4]) +
+                   H13 * (P1[3][2] + P1[3][4] + P1[2][3] + P1[4][3])) +
+            H13 * H13 * P1[3][3];
+  // S += R
+/*
+  float R[2][2] = {
+    {0.1, 0},
+    {0, 0.08},
+  };
+*/
+  S[0][0] += 0.1f;
+  S[1][1] += 0.08f;
 
-  // float invS[2][2];
-  // mat_inv(2, (float *)invS, (float *)S);
   float detS = S[0][0] * S[1][1] - S[0][1] * S[1][0];
   float invS[2][2] = {
     { S[1][1] / detS, -S[0][1] / detS},
     {-S[1][0] / detS,  S[0][0] / detS},
   };
-/*
-  printf("Ht = \n"); mat_print(5, 2, Ht);
-  printf("S = \n"); mat_print(2, 2, S);
-*/
   float K[5][2];
   mat_mul(5, 2, 2, (float *)tmpA, (float *)Ht, (float *)invS);
   mat_mul(5, 5, 2, (float *)K, (float *)P1, (float *)tmpA);
@@ -164,33 +152,14 @@ void ekf_step(float x[5], float P[5][5], const float z[2]) {
   float Ky[5];
   mat_mul(5, 2, 1, (float *)Ky, (float *)K, (float *)y);
   for (int i = 0; i < 5; i++) x2[i] = x1[i] + Ky[i];
-/*
-  printf("K = \n"); mat_print(5, 2, K);
-  printf("y = \n"); mat_print(2, 1, y);
-  printf("Ky = \n"); mat_print(5, 1, Ky);
-  printf("x2 = \n"); mat_print(1, 5, x2);
-*/
 
   float P2[5][5];
-/*
-  float KHP1[5][5];
-  mat_mul(2, 5, 5, (float *)tmpA, (float *)H, (float *)P1);
-  printf("H = \n"); mat_print(2, 5, H);
-  printf("P1 = \n"); mat_print(5, 5, P1);
-  mat_mul(5, 2, 5, (float *)KHP1, (float *)K, (float *)tmpA);
-  printf("KHP1 = \n"); mat_print(5, 5, KHP1);
-  for (int i = 0; i < 5; i++)
-    for (int j = 0; j < 5; j++)
-      P2[i][j] = P1[i][j] - KHP1[i][j];
-*/
   float KH[5][5];
   mat_mul(5, 2, 5, (float *)KH, (float *)K, (float *)H);
   for (int i = 0; i < 5; i++)
     for (int j = 0; j < 5; j++)
       KH[i][j] = (i == j ? 1 : 0) - KH[i][j];
-  // printf("I-KH = \n"); mat_print(5, 5, KH);
   mat_mul(5, 5, 5, (float *)P2, (float *)KH, (float *)P1);
-  // printf("P2 = \n"); mat_print(5, 5, P2);
 
   for (int i = 0; i < 5; i++) x[i] = x2[i];
   for (int i = 0; i < 5; i++)
