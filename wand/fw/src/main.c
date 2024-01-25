@@ -977,8 +977,8 @@ int main()
     gyr[0] -= ((uint32_t)gyr_cas * gyr[2]) >> 9;
 
   #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
-    TIM16->CCR1 = (HAL_GetTick() % 2048 <= 50) ? 300 : 0;
-    TIM17->CCR1 = 0;
+    TIM17->CCR1 = (HAL_GetTick() % 2048 <= 50 && (HAL_GetTick() / 6144) % 3 != 1) ? 300 : 0;
+    TIM16->CCR1 = (HAL_GetTick() % 2048 <= 50 && (HAL_GetTick() / 6144) % 3 != 0) ? 300 : 0;
     TIM14->CCR1 = 0;
 
 /*
