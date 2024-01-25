@@ -13,6 +13,8 @@
 #define nRF_CE_PORT GPIOA
 #define VDDSUB_G_PIN  GPIO_PIN_9
 #define VDDSUB_G_PORT GPIOB
+#define MOTOR_G_PIN   GPIO_PIN_4
+#define MOTOR_G_PORT  GPIOA
 
 // #define RELEASE
 #ifndef RELEASE
@@ -662,12 +664,23 @@ int main()
 
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 
-  gpio_init.Pin = VDDSUB_G_PIN;
-  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
   gpio_init.Pull = GPIO_NOPULL;
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+  gpio_init.Pin = VDDSUB_G_PIN;
+  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
   HAL_GPIO_Init(VDDSUB_G_PORT, &gpio_init);
   HAL_GPIO_WritePin(VDDSUB_G_PORT, VDDSUB_G_PIN, 0);
+  gpio_init.Pin = MOTOR_G_PIN;
+  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
+  HAL_GPIO_Init(MOTOR_G_PORT, &gpio_init);
+  HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
+
+/*
+  for (int i = 0; i < 4; i++) {
+    HAL_Delay(500); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 1);
+    HAL_Delay(i < 2 ? 65 : 500); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
+  }
+*/
 
   // ======== LED Timers ========
   // APB1 = 16 MHz
