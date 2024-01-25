@@ -11,6 +11,8 @@
 #define nRF_CS_PORT GPIOA
 #define nRF_CE_PIN  GPIO_PIN_11
 #define nRF_CE_PORT GPIOA
+#define VDDSUB_G_PIN  GPIO_PIN_9
+#define VDDSUB_G_PORT GPIOB
 
 // #define RELEASE
 #ifndef RELEASE
@@ -660,6 +662,13 @@ int main()
 
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 
+  gpio_init.Pin = VDDSUB_G_PIN;
+  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
+  gpio_init.Pull = GPIO_NOPULL;
+  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(VDDSUB_G_PORT, &gpio_init);
+  HAL_GPIO_WritePin(VDDSUB_G_PORT, VDDSUB_G_PIN, 0);
+
   // ======== LED Timers ========
   // APB1 = 16 MHz
   // period = 4 kHz = 4000 cycles
@@ -872,10 +881,6 @@ int main()
   HAL_Delay(150);
 
   // INTERNAL_STATUS
-  // XXX: Does not work properly when VDDSUB is not supplied.
-  // In particular, CHIP_ID returns correctly, but INTERNAL_STATUS reads 0xFF
-  // As the PMOS has not been soldered and the gate output has not been added
-  // for now, expect errors here unless VDDSUB is manually shorted to VDD
   uint8_t init_status = bmi270_read_reg(0x21) & 0xF;
   if (init_status == 0x1) {
     swv_printf("BMI270 init ok\n");
@@ -962,6 +967,16 @@ int main()
     TIM16->CCR1 = (HAL_GetTick() % 2048 <= 50) ? 300 : 0;
     TIM17->CCR1 = 0;
     TIM14->CCR1 = 0;
+
+/*
+    static int count = 0;
+    if (++count == 20) {
+      HAL_GPIO_WritePin(VDDSUB_G_PORT, VDDSUB_G_PIN, 1);
+      swv_printf("Test turning off VDDSUB\n");
+    } else if (count == 40) {
+      HAL_GPIO_WritePin(VDDSUB_G_PORT, VDDSUB_G_PIN, 0);
+    }
+*/
 
     return (struct proceed_t){read_bmi270_and_update, 10};
   }
