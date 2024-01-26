@@ -681,6 +681,8 @@ int main()
     HAL_Delay(i < 2 ? 65 : 500); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
   }
 */
+  HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 1);
+  HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
 
   // ======== LED Timers ========
   // APB1 = 16 MHz
