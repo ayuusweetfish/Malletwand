@@ -1,0 +1,30 @@
+{
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m0plus",
+    "extra_flags": "-DSTM32G0xx -DSTM32G031xx",
+    "f_cpu": "64000000L",
+    "mcu": "stm32g031f8",
+    "product_line": "STM32G031xx",
+    "variant": "STM32G0xx/G031F8"
+  },
+  "debug": {
+    "openocd_target": "stm32g0x"
+  },
+  "frameworks": [
+    "stm32cube"
+  ],
+  "name": "STM32GG031F8 (8k RAM, 64k Flash)",
+  "upload": {
+    "maximum_ram_size": 8192,
+    "maximum_size": 65536,
+    "protocol": "stlink",
+    "protocols": [
+      "cmsis-dap",
+      "serial",
+      "stlink"
+    ]
+  },
+  "url": "https://www.st.com/en/microcontrollers-microprocessors/stm32g031f8.html",
+  "vendor": "ST"
+}
