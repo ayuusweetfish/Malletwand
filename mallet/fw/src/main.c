@@ -20,6 +20,8 @@
 #define DRV_NFAULT_PIN  GPIO_PIN_2
 #define DRV_NSLEEP_PORT GPIOA
 #define DRV_NSLEEP_PIN  GPIO_PIN_3
+#define DRV_EN_PORT   GPIOA
+#define DRV_EN_PIN    GPIO_PIN_5
 #define DRV_IN_U_PORT GPIOA
 #define DRV_IN_U_PIN  GPIO_PIN_6
 #define DRV_IN_V_PORT GPIOA
@@ -261,7 +263,7 @@ int main()
   HAL_TIM_PWM_ConfigChannel(&tim3, &tim3_ch1_oc_init, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&tim3, TIM_CHANNEL_3);
 
-  // Driver nFAULT and nSLEEP pins
+  // Driver nFAULT, nSLEEP, and EN pins
   gpio_init.Pin = DRV_NFAULT_PIN;
   gpio_init.Mode = GPIO_MODE_INPUT;
   gpio_init.Pull = GPIO_PULLUP;
@@ -274,6 +276,13 @@ int main()
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(DRV_NSLEEP_PORT, &gpio_init);
   HAL_GPIO_WritePin(DRV_NSLEEP_PORT, DRV_NSLEEP_PIN, 1);
+
+  gpio_init.Pin = DRV_EN_PIN;
+  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
+  gpio_init.Pull = GPIO_NOPULL;
+  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(DRV_EN_PORT, &gpio_init);
+  HAL_GPIO_WritePin(DRV_EN_PORT, DRV_EN_PIN, 1);
 
   // ======== I2C ========
   gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12;
@@ -322,10 +331,10 @@ int main()
     TIM14->CCR1 = 0;
     TIM16->CCR1 = 0;
     TIM17->CCR1 = 0;
-    for (int i = 0; i < 21600; i += 1) {
-      float t = 1 - cosf((float)i / 21600 * 6.2831853f);
-      // angle normalized into [0, 36000000)
-      int angle = (int)(0.5f + 72000000 + 288000000 * t);
+    for (int i = 0; i < 1800; i += 1) {
+      float t = 1 - cosf((float)i / 1800 * 6.2831853f);
+      // angle normalized into [0, 36000000) (36000000 = 1/3 revolution)
+      int angle = (int)(0.5f + 72000000 + 72000000 * t);
       drive_motor(angle);
       // T
       chroma_timers[chroma]->CCR1 = 4000 * t;
