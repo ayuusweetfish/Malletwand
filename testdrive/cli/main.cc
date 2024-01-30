@@ -50,6 +50,7 @@ static inline float filter_update(
 }
 
 int main() {
+/*
   float A[3][3], c[3];
   vec3 x[] = {
     (vec3){-0.048768226,  0.506737186, -1.114967264},
@@ -69,6 +70,7 @@ int main() {
       printf("%9.5f%c", A[i][j], j == 2 ? '\n' : ' ');
   for (int i = 0; i < 3; i++) printf("%9.5f%c", c[i], i == 2 ? '\n' : ' ');
   return 0;
+*/
   if (!SimpleBLE::Adapter::bluetooth_enabled()) {
     printf("Bluetooth not enabled\n");
     puts("Press Enter to exit"); getchar();
@@ -132,7 +134,7 @@ int main() {
       payload[0] = x & 0xff;
       payload[1] = (x >> 8) & 0xff;
       for (int i = 0; i < y.length(); i++) payload[i + 2] = (uint8_t)y[i];
-      for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
+      // for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
       readings_mutex.lock();
       mag_out[0] = ((int16_t)payload[ 0] << 8) | payload[ 1];
       mag_out[1] = ((int16_t)payload[ 2] << 8) | payload[ 3];
@@ -197,9 +199,14 @@ int main() {
         disp_verbose ^= 1;
 
       readings_mutex.lock();
-      vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
       vec3 gyr = (vec3){(float)gyr_out[0], (float)gyr_out[1], (float)gyr_out[2]};
+    #ifndef DIRECT_OUTPUT
+      vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
       vec3 mag = (vec3){(float)mag_out[0], (float)mag_out[1], (float)mag_out[2]};
+    #else
+      vec3 acc = (vec3){0, 0, 100};
+      vec3 mag = (vec3){100, 0, 0};
+    #endif
       bool cur_readings_updated = readings_updated;
       readings_updated = false;
       readings_mutex.unlock();
@@ -245,6 +252,7 @@ int main() {
           vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), 1.f / (16.384 * 360));
         float z[2] = {gyr_calibrated.x, gyr_calibrated.y};
         ekf_step(ekf_x, ekf_P, z);
+        printf("EKF step %.6f %.6f\n", gyr_calibrated.x, gyr_calibrated.y);
         // printf("%.7f\n", ekf_x[2]);
       }
 
@@ -326,9 +334,8 @@ int main() {
         for (int i = 0; i < 5; i++)
           for (int j = 0; j < 5; j++)
             P_F += ekf_P[i][j] * ekf_P[i][j];
-        printf("%.7f\n", sqrtf(P_F));
+        printf("%10.7f ", sqrtf(P_F));
 
-        static float last_phase = 0;
         float ω = ekf_x[0];
         float A = ekf_x[1];
         float θ = ekf_x[2];
@@ -337,7 +344,27 @@ int main() {
         float δ = atan2(A*A + B*B * cosf(2*ϕ), -B*B * sinf(2*ϕ));
         float cen_phase = -0.5 * δ + 0.25 * M_PI;
         // printf("%.7f %.7f %.7f\n", θ, cen_phase, P_F);
-        last_phase = θ;
+      #ifndef DIRECT_OUTPUT
+        printf("%10.7f\n", cen_phase);
+      #else
+        float music_phase =
+          // (float)(((int32_t)mag_out[0] << 16) | (int32_t)(uint16_t)mag_out[1]) / 1000000;
+          (float)mag_out[0] * 65536 / 1000000;
+        float raw_B = (float)mag_out[1] / 10000;
+        float raw_A = (float)mag_out[2] / 10000;
+        float raw_omega = (float)acc_out[0] / 1000;
+        float raw_theta = (float)acc_out[1] / 1000;
+        float raw_phi = (float)acc_out[2] / 1000;
+        printf("%10.7f %10.7f | omega=%7.4f A=%9.6f theta=%7.4f B=%9.6f phi=%7.4f\n",
+          fmodf(cen_phase - θ + M_PI * 4, M_PI * 2),
+          fmodf(music_phase + M_PI * 4, M_PI * 2),
+          raw_omega,
+          raw_A,
+          raw_theta,
+          raw_B,
+          raw_phi
+        );
+      #endif
         /*
         plotLine(
           (vec3){0, 0, 0},
@@ -348,15 +375,26 @@ int main() {
           (vec3){cosf(cen_phase) * 2, sinf(cen_phase) * 2, 0},
           (rl::Color){160, 40, 40, 255});
         */
+        plotPoint((vec3){ 1.2, 0, 0}, (rl::Color){160, 160, 160, 255}, false);
+        plotPoint((vec3){-1.2, 0, 0}, (rl::Color){160, 160, 160, 255}, false);
         plotLine(
           (vec3){cosf(cen_phase - θ) *-2, sinf(cen_phase - θ) *-2, 0},
           (vec3){cosf(cen_phase - θ) * 2, sinf(cen_phase - θ) * 2, 0},
+      #ifndef DIRECT_OUTPUT
           (rl::Color){160, 40, 40, 255});
-        plotPoint((vec3){ 1.2, 0, 0}, (rl::Color){160, 160, 160, 255}, false);
-        plotPoint((vec3){-1.2, 0, 0}, (rl::Color){160, 160, 160, 255}, false);
         plotPoint(
           (vec3){cosf(cen_phase - θ) * 1.2f, sinf(cen_phase - θ) * 1.2f, 0},
           (rl::Color){160, 40, 40, 255}, false);
+      #else
+          (rl::Color){160, 40, 40, 20});
+        plotLine(
+          (vec3){cosf(music_phase) *-2, sinf(music_phase) *-2, 0},
+          (vec3){cosf(music_phase) * 2, sinf(music_phase) * 2, 0},
+          (rl::Color){180, 80, 80, 255});
+        plotPoint(
+          (vec3){raw_A * cosf(raw_theta), raw_B * cosf(raw_theta + raw_phi), 0},
+          (rl::Color){0, 80, 255, 255});
+      #endif
 
         if (disp_verbose) {
           plotPoint(

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "../../../testdrive/cli/ekf.h"
+#include "../../../testdrive/cli/geom.h"
 
 #define BMI_CS_PIN  GPIO_PIN_3
 #define BMI_CS_PORT GPIOA
@@ -624,6 +625,27 @@ static inline int16_t satneg16(int16_t x)
   return -x;
 }
 
+struct filter {
+  float i1, i2;
+};
+
+static inline float filter_update(
+  struct filter *f,
+  float th, float thd
+) {
+  if (th < f->i2 - M_PI) th += M_PI * 2;
+  if (th > f->i2 + M_PI) th -= M_PI * 2;
+  float x1 = f->i2 - th;
+  f->i1 += x1 * 1.f/100;
+  const float omega = 24.0f;
+  float x2 = 1.0f * omega * f->i1 + 1.414f * omega * x1;
+  float x3 = thd - x2;
+  f->i2 += x3 * 1.f/100;
+  if (f->i2 >  M_PI) f->i2 -= M_PI * 2;
+  if (f->i2 < -M_PI) f->i2 += M_PI * 2;
+  return f->i2;
+}
+
 int main()
 {
   HAL_Init();
@@ -904,6 +926,7 @@ int main()
     swv_printf("BMI270 init status 0x%02x\n", (int)init_status);
   }
 
+if (0) {
   // EKF testrun
   float x[5] = {40, 1, 0, 1, 0};
   float P[5][5] = {
@@ -925,6 +948,7 @@ int main()
   // start 544
   // end 1366 (processed 200) 918
   while (1) { }
+}
 
   // Normal mode
   bmi270_write_reg(0x7D, 0b0110); // PWR_CTRL.gyr_en = 1, .acc_en = 1
@@ -972,6 +996,19 @@ int main()
     HAL_Delay(10);
   }
 
+  // Signal processing
+  quat q_ref = (quat){0, 0, 0, 1};
+  float m_tfm[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  vec3 m_cen = (vec3){0, 0, 0};
+  float ekf_x[5] = {40, 1, 0, 1, 0};
+  float ekf_P[5][5] = {
+    {30, 0, 0, 0, 0},
+    {0, 1, 0, 0, 0},
+    {0, 0, 4, 0, 0},
+    {0, 0, 0, 1, 0},
+    {0, 0, 0, 0, 4},
+  };
+
   // ======== Main loop ========
 
   struct proceed_t {
@@ -979,27 +1016,74 @@ int main()
     int wait;
   };
 
-  int16_t mag[3], acc[3], gyr[3];
+  int16_t mag_out[3], acc_out[3], gyr_out[3];
+  int32_t music_phase;
 
   struct proceed_t read_bmi270_and_update() {
     uint8_t data[24];
     bmi270_read_burst(0x04, data, 23);
     for (int i = 0; i < 23; i++) swv_printf("%02x%c", (int)data[i], i == 22 ? '\n' : ' ');
     // Assumes little endian
-    mag[0] = satneg16(((int16_t)((int8_t)data[0] << 8) | data[1]) + 0x8000);
-    mag[2] = satneg16(((int16_t)((int8_t)data[2] << 8) | data[3]) + 0x8000);
-    mag[1] = satneg16(((int16_t)((int8_t)data[4] << 8) | data[5]) + 0x8000);
-    acc[2] =          *( int16_t *)(data +  8);
-    acc[0] = satneg16(*( int16_t *)(data + 10));
-    acc[1] = satneg16(*( int16_t *)(data + 12));
-    gyr[2] =          *( int16_t *)(data + 14);
-    gyr[0] = satneg16(*( int16_t *)(data + 16));
-    gyr[1] = satneg16(*( int16_t *)(data + 18));
+    mag_out[2] = satneg16(((int16_t)((int8_t)data[0] << 8) | data[1]) + 0x8000);
+    mag_out[0] =         (((int16_t)((int8_t)data[2] << 8) | data[3]) + 0x8000);
+    mag_out[1] = satneg16(((int16_t)((int8_t)data[4] << 8) | data[5]) + 0x8000);
+    acc_out[2] =          *( int16_t *)(data +  8);
+    acc_out[0] = satneg16(*( int16_t *)(data + 10));
+    acc_out[1] = satneg16(*( int16_t *)(data + 12));
+    gyr_out[2] =          *( int16_t *)(data + 14);
+    gyr_out[0] = satneg16(*( int16_t *)(data + 16));
+    gyr_out[1] = satneg16(*( int16_t *)(data + 18));
     data[23] = 0;
     uint32_t time = *(uint32_t *)(data + 20);
     // Gyroscope calibration
     int8_t gyr_cas = ((int8_t)bmi270_read_reg(0x3C) << 1) >> 1;
-    gyr[0] -= ((uint32_t)gyr_cas * gyr[2]) >> 9;
+    gyr_out[0] -= ((uint32_t)gyr_cas * gyr_out[2]) >> 9;
+
+    if (!(
+      (mag_out[0] != 0x7fff || mag_out[1] != 0x7fff || mag_out[2] != 0x7fff)
+      && (acc_out[0] != 0x0000 || acc_out[1] != 0x0000 || acc_out[2] != 0x0000
+       || gyr_out[0] != 0x0000 || gyr_out[1] != 0x0000 || gyr_out[2] != 0x0000)
+    ))
+      // Ignoring invalid data at startup
+      return (struct proceed_t){read_bmi270_and_update, 10};
+
+    vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
+    vec3 gyr = (vec3){(float)gyr_out[0], (float)gyr_out[1], (float)gyr_out[2]};
+    vec3 mag = (vec3){(float)mag_out[0], (float)mag_out[1], (float)mag_out[2]};
+    float magScale = 2.f / 1024;  // unit = 0.5 G = 0.05 mT ≈ geomagnetic field
+    mag = vec3_scale(mag, magScale);
+    vec3 acc_raw = acc;
+    vec3 gyr_raw = gyr;
+    vec3 mag_raw = mag;
+    acc = quat_rot(q_ref, acc_raw);
+    gyr = quat_rot(q_ref, gyr_raw);
+    mag = quat_rot(q_ref, mag_raw);
+    mag = vec3_transform(m_tfm, vec3_diff(mag, m_cen));
+    vec3 mag_upright_g = quat_rot(rot_from_endpoints(acc, (vec3){0, 0, 1}), mag);
+
+    float xy_ori_d = gyr.z / (16.384 * 180) * M_PI;
+    float xy_ori = -atan2f(mag_upright_g.y, mag_upright_g.x);
+    static struct filter xy_f;
+    float xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
+
+    vec3 gyr_calibrated =
+      vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), 1.f / (16.384 * 360));
+    float z[2] = {gyr_calibrated.x, gyr_calibrated.y};
+    ekf_step(ekf_x, ekf_P, z);
+    // swv_printf("%07d ", (int)(xy_ori_filtered * 1000000));
+
+    float ω = ekf_x[0];
+    float A = ekf_x[1];
+    float θ = ekf_x[2];
+    float B = ekf_x[3];
+    float ϕ = ekf_x[4];
+    float δ = atan2(A*A + B*B * cosf(2*ϕ), -B*B * sinf(2*ϕ));
+    float cen_phase = -0.5 * δ + 0.25 * M_PI;
+    /* swv_printf("%08x %08x %07d\n",
+      *(int *)&cen_phase,
+      *(int *)&θ,
+      (int)((cen_phase - θ) * 1000)); */
+    music_phase = (int32_t)(fmodf(cen_phase - θ, M_PI * 2) * 1000000);
 
   #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
     TIM17->CCR1 = (HAL_GetTick() % 2048 <= 50 && (HAL_GetTick() / 6144) % 3 != 1) ? 300 : 0;
@@ -1062,17 +1146,40 @@ int main()
     buf[p++] = timestamp >> 8;
     buf[p++] = timestamp & 0xFF;
   */
+  /*
     for (int i = 0; i < 3; i++) {
-      buf[p++] = mag[i] >> 8;
-      buf[p++] = mag[i] & 0xFF;
+      buf[p++] = mag_out[i] >> 8;
+      buf[p++] = mag_out[i] & 0xFF;
     }
+  */
+    buf[p++] = (music_phase >> 24) & 0xFF;
+    buf[p++] = (music_phase >> 16) & 0xFF;
+    // buf[p++] = (music_phase >>  8) & 0xFF;
+    // buf[p++] = (music_phase >>  0) & 0xFF;
+    int16_t value_B = (int16_t)(ekf_x[3] * 10000);
+    buf[p++] = (value_B >> 8) & 0xFF;
+    buf[p++] = (value_B >> 0) & 0xFF;
+    int16_t value_A = (int16_t)(ekf_x[1] * 10000);
+    buf[p++] = (value_A >> 8) & 0xFF;
+    buf[p++] = (value_A >> 0) & 0xFF;
+  /*
     for (int i = 0; i < 3; i++) {
-      buf[p++] = acc[i] >> 8;
-      buf[p++] = acc[i] & 0xFF;
+      buf[p++] = acc_out[i] >> 8;
+      buf[p++] = acc_out[i] & 0xFF;
     }
+  */
+    int16_t value_omega = (int16_t)(ekf_x[0] * 1000);
+    buf[p++] = (value_omega >> 8) & 0xFF;
+    buf[p++] = (value_omega >> 0) & 0xFF;
+    int16_t value_theta = (int16_t)(ekf_x[2] * 1000);
+    buf[p++] = (value_theta >> 8) & 0xFF;
+    buf[p++] = (value_theta >> 0) & 0xFF;
+    int16_t value_phi = (int16_t)(ekf_x[4] * 1000);
+    buf[p++] = (value_phi >> 8) & 0xFF;
+    buf[p++] = (value_phi >> 0) & 0xFF;
     for (int i = 0; i < 3; i++) {
-      buf[p++] = gyr[i] >> 8;
-      buf[p++] = gyr[i] & 0xFF;
+      buf[p++] = gyr_out[i] >> 8;
+      buf[p++] = gyr_out[i] & 0xFF;
     }
     static int idx = 0;
     buf[p++] = "Mlt"[(idx = (idx + 1) % 3)];
