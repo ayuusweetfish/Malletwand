@@ -50,7 +50,6 @@ static inline float filter_update(
 }
 
 int main() {
-/*
   float A[3][3], c[3];
   vec3 x[] = {
     (vec3){-0.048768226,  0.506737186, -1.114967264},
@@ -65,8 +64,11 @@ int main() {
     (vec3){-0.630838399,  0.761593886, -1.133984329},
   };
   elli_fit(sizeof x / sizeof x[0], x, 0.01, A, c);
+  for (int i = 0; i < 3; i++)
+    for (int j = 0; j < 3; j++)
+      printf("%9.5f%c", A[i][j], j == 2 ? '\n' : ' ');
+  for (int i = 0; i < 3; i++) printf("%9.5f%c", c[i], i == 2 ? '\n' : ' ');
   return 0;
-*/
   if (!SimpleBLE::Adapter::bluetooth_enabled()) {
     printf("Bluetooth not enabled\n");
     puts("Press Enter to exit"); getchar();

@@ -62,16 +62,6 @@ void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
   for (int p = 0; p < 10; p++)
     for (int q = p; q < 10; q++) {
       psi[p][q] = 0;
-      /* if (p == 0 && q == 1)
-        for (int i = 0; i < m; i++) {
-          printf("%d - %.8f\n", R[p][q][0], t[i][0][R[p][q][0]]);
-          printf("%d - %.8f\n", R[p][q][1], t[i][1][R[p][q][1]]);
-          printf("%d - %.8f\n", R[p][q][2], t[i][2][R[p][q][2]]);
-          printf("%d: prod = %.8f\n", i,
-            t[i][0][R[p][q][0]] *
-            t[i][1][R[p][q][1]] *
-            t[i][2][R[p][q][2]]);
-        } */
       for (int i = 0; i < m; i++)
         psi[p][q] +=
           t[i][0][R[p][q][0]] *
@@ -168,11 +158,11 @@ void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
       printf("%9.5f%c", a_tfm[i][j], j == 2 ? '\n' : ' '); */
 
   inv_mat3_sym(a_tfm, inv_tfm);
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 3; i++) c[i] = c_est[i];
+  /* for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++)
       printf("%9.5f%c", inv_tfm[i][j], j == 2 ? '\n' : ' ');
-  for (int i = 0; i < 3; i++) c[i] = c_est[i];
-  for (int i = 0; i < 3; i++) printf("%9.5f%c", c[i], i == 2 ? '\n' : ' ');
+  for (int i = 0; i < 3; i++) printf("%9.5f%c", c[i], i == 2 ? '\n' : ' '); */
 }
 
 // https://github.com/swedishembedded/control/blob/5327a24485f246f20cc79f98427bd330cb8c2b37/src/linalg/eig_sym.c
@@ -189,9 +179,6 @@ void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
 // Private functions
 static void tqli(float *d, float *e, uint16_t row, float *z);
 static void tridiag(float *a, uint16_t row, float *d, float *e);
-static float pythag_float(float a, float b);
-#define square(a) ((a) * (a))
-#define abs_sign(a, b) ((b) >= 0.0 ? fabsf(a) : -fabsf(a)) // Special case for tqli function
 
 void eig_sym(const float *const AA, float *ev, float *d, uint16_t row)
 {
@@ -293,17 +280,6 @@ static void tridiag(float *a, uint16_t row, float *d, float *e)
   }
 }
 
-static float pythag_float(float a, float b)
-{
-  float absa = fabsf(a);
-  float absb = fabsf(b);
-
-  if (absa > absb) {
-    return absa * sqrtf(1.0f + square(absb / absa));
-  }
-  return (absb < FLT_EPSILON ? 0.0f : absb * sqrtf(1.0f + square(absa / absb)));
-}
-
 static void tqli(float *d, float *e, uint16_t row, float *z)
 {
   int m, l, iter, i, k;
@@ -326,14 +302,14 @@ static void tqli(float *d, float *e, uint16_t row, float *z)
           break;
         }
         g = (*(d + l + 1) - *(d + l)) / (2.0f * *(e + l));
-        r = pythag_float(g, 1.0f);
-        g = *(d + m) - *(d + l) + *(e + l) / (g + abs_sign(r, g));
+        r = hypotf(g, 1.0f);
+        g = *(d + m) - *(d + l) + *(e + l) / (g + copysignf(r, g));
         s = c = 1.0f;
         p = 0.0f;
         for (i = m - 1; i >= l; i--) {
           f = s * *(e + i);
           b = c * *(e + i);
-          e[i + 1] = (r = pythag_float(f, g));
+          e[i + 1] = (r = hypotf(f, g));
           if (fabsf(r) < FLT_EPSILON) {
             *(d + i + 1) -= p;
             *(e + m) = 0.0f;
