@@ -1020,7 +1020,7 @@ if (0) {
   };
 
   int16_t mag_out[3], acc_out[3], gyr_out[3];
-  int32_t music_phase;
+  int32_t music_phase_i;
 
   struct proceed_t read_bmi270_and_update() {
     uint8_t data[24];
@@ -1121,7 +1121,33 @@ if (0) {
       *(int *)&cen_phase,
       *(int *)&θ,
       (int)((cen_phase - θ) * 1000)); */
-    music_phase = (int32_t)(fmodf(cen_phase - θ, M_PI * 2) * 1000000);
+    float music_phase = fmodf(θ - cen_phase + M_PI * 4, M_PI * 2);
+    static float last_music_phase = 0;
+    music_phase_i = (int32_t)(music_phase * 1000000);
+
+    static int colour = 0;
+    static int colours[4][3] = {
+      {500, 0, 0},
+      {0, 300, 0},
+      {300, 0, 300},
+      {0, 300, 300},
+    };
+    bool going_forward =
+      fmodf(music_phase - last_music_phase + M_PI * 2, M_PI * 2) < M_PI;
+    if (acc_ptr == 300 && going_forward
+      && floorf(last_music_phase / M_PI) != floorf(music_phase / M_PI)
+    ) {
+      colour = (colour + 1) % 4;
+      TIM17->CCR1 = colours[colour][0];
+      TIM16->CCR1 = colours[colour][1];
+      TIM14->CCR1 = colours[colour][2];
+    }
+    if (going_forward) last_music_phase = music_phase;
+    /* if (going_forward) {
+      TIM17->CCR1 = 400; TIM16->CCR1 = TIM14->CCR1 = 0;
+    } else {
+      TIM14->CCR1 = 300; TIM16->CCR1 = TIM17->CCR1 = 0;
+    } */
 
   /*
   #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
@@ -1182,10 +1208,10 @@ if (0) {
       buf[p++] = mag_out[i] & 0xFF;
     }
   */
-    buf[p++] = (music_phase >> 24) & 0xFF;
-    buf[p++] = (music_phase >> 16) & 0xFF;
-    buf[p++] = (music_phase >>  8) & 0xFF;
-    buf[p++] = (music_phase >>  0) & 0xFF;
+    buf[p++] = (music_phase_i >> 24) & 0xFF;
+    buf[p++] = (music_phase_i >> 16) & 0xFF;
+    buf[p++] = (music_phase_i >>  8) & 0xFF;
+    buf[p++] = (music_phase_i >>  0) & 0xFF;
   /*
     int16_t value_B = (int16_t)(ekf_x[3] * 10000);
     buf[p++] = (value_B >> 8) & 0xFF;
