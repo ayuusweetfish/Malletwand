@@ -1019,10 +1019,12 @@ if (0) {
   int16_t mag_out[3], acc_out[3], gyr_out[3];
   int32_t music_phase;
 
+  vec3 gyr_calibrated;
+
   struct proceed_t read_bmi270_and_update() {
     uint8_t data[24];
     bmi270_read_burst(0x04, data, 23);
-    for (int i = 0; i < 23; i++) swv_printf("%02x%c", (int)data[i], i == 22 ? '\n' : ' ');
+    // for (int i = 0; i < 23; i++) swv_printf("%02x%c", (int)data[i], i == 22 ? '\n' : ' ');
     // Assumes little endian
     mag_out[2] = satneg16(((int16_t)((int8_t)data[0] << 8) | data[1]) + 0x8000);
     mag_out[0] =         (((int16_t)((int8_t)data[2] << 8) | data[3]) + 0x8000);
@@ -1063,14 +1065,30 @@ if (0) {
 
     float xy_ori_d = gyr.z / (16.384 * 180) * M_PI;
     float xy_ori = -atan2f(mag_upright_g.y, mag_upright_g.x);
-    static struct filter xy_f;
+    static struct filter xy_f = { 0 };
     float xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
 
-    vec3 gyr_calibrated =
+    // xy_ori_filtered = 0;
+    gyr_calibrated =
       vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), 1.f / (16.384 * 360));
+    /* swv_printf("read-out %d %d %d, xy_ori_filtered %d, calibrated %d %d %d\n",
+      (int)gyr_out[0], (int)gyr_out[1], (int)gyr_out[2],
+      (int)(xy_ori_filtered * 10000),
+      (int)(gyr_calibrated.x * 10000),
+      (int)(gyr_calibrated.y * 10000),
+      (int)(gyr_calibrated.z * 10000)
+    ); */
+    /* swv_printf("EKF step %6d %6d | gyr %6d %6d\n",
+      (int)(gyr_calibrated.x * 100000), (int)(gyr_calibrated.y * 100000),
+      (int)(gyr.x / (16.384 * 360) * 100000),
+      (int)(gyr.y / (16.384 * 360) * 100000)); */
     float z[2] = {gyr_calibrated.x, gyr_calibrated.y};
     ekf_step(ekf_x, ekf_P, z);
     // swv_printf("%07d ", (int)(xy_ori_filtered * 1000000));
+    /* swv_printf("%07d %07d\n",
+      (int)(gyr_calibrated.x * 1000000),
+      (int)(gyr_calibrated.y * 1000000)
+    ); */
 
     float ω = ekf_x[0];
     float A = ekf_x[1];
@@ -1162,6 +1180,14 @@ if (0) {
     int16_t value_A = (int16_t)(ekf_x[1] * 10000);
     buf[p++] = (value_A >> 8) & 0xFF;
     buf[p++] = (value_A >> 0) & 0xFF;
+  /*
+    int16_t value_gyr_x = (int16_t)(gyr_calibrated.x * 10000);
+    buf[p++] = (value_gyr_x >> 8) & 0xFF;
+    buf[p++] = (value_gyr_x >> 0) & 0xFF;
+    int16_t value_gyr_y = (int16_t)(gyr_calibrated.y * 10000);
+    buf[p++] = (value_gyr_y >> 8) & 0xFF;
+    buf[p++] = (value_gyr_y >> 0) & 0xFF;
+  */
   /*
     for (int i = 0; i < 3; i++) {
       buf[p++] = acc_out[i] >> 8;

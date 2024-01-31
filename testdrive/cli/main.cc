@@ -248,11 +248,14 @@ int main() {
         static struct filter xy_f;
         xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
 
+        xy_ori_filtered = 0;
         vec3 gyr_calibrated =
           vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), 1.f / (16.384 * 360));
         float z[2] = {gyr_calibrated.x, gyr_calibrated.y};
         ekf_step(ekf_x, ekf_P, z);
-        printf("EKF step %.6f %.6f\n", gyr_calibrated.x, gyr_calibrated.y);
+        /* printf("EKF step %.6f %.6f | gyr %.6f %.6f\n",
+          gyr_calibrated.x, gyr_calibrated.y,
+          gyr.x / (16.384 * 360), gyr.y / (16.384 * 360)); */
         // printf("%.7f\n", ekf_x[2]);
       }
 
@@ -334,7 +337,7 @@ int main() {
         for (int i = 0; i < 5; i++)
           for (int j = 0; j < 5; j++)
             P_F += ekf_P[i][j] * ekf_P[i][j];
-        printf("%10.7f ", sqrtf(P_F));
+        // printf("%10.7f ", sqrtf(P_F));
 
         float ω = ekf_x[0];
         float A = ekf_x[1];
@@ -355,7 +358,7 @@ int main() {
         float raw_omega = (float)acc_out[0] / 1000;
         float raw_theta = (float)acc_out[1] / 1000;
         float raw_phi = (float)acc_out[2] / 1000;
-        printf("%10.7f %10.7f | omega=%7.4f A=%9.6f theta=%7.4f B=%9.6f phi=%7.4f\n",
+        printf("(Device) %10.7f %10.7f | omega=%7.4f A=%9.6f theta=%7.4f B=%9.6f phi=%7.4f\n",
           fmodf(cen_phase - θ + M_PI * 4, M_PI * 2),
           fmodf(music_phase + M_PI * 4, M_PI * 2),
           raw_omega,
@@ -364,6 +367,8 @@ int main() {
           raw_B,
           raw_phi
         );
+        printf("(Local)                        | omega=%7.4f A=%9.6f theta=%7.4f B=%9.6f phi=%7.4f\n",
+          ω, A, θ, B, ϕ);
       #endif
         /*
         plotLine(

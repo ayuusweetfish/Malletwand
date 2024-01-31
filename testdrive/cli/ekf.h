@@ -51,7 +51,7 @@ void ekf_step(float x[5], float P[5][5], const float z[2]) {
   float ϕ = x[4];
   float dt = 0.01;
 
-  ω = fabs(ω);
+  ω = fabs(ω - 1.0f) + 1.0f;
   A = fabs(A);
   B = fabs(B);
   if (θ > M_PI * 2) θ -= M_PI * 2; else if (θ < 0) θ += M_PI * 2;
@@ -83,16 +83,16 @@ void ekf_step(float x[5], float P[5][5], const float z[2]) {
   float Q[5][5] = {
     {1e-2, 0, 0, 0, 0},
     {0, 1e-4, 0, 0, 0},
-    {0, 0, 1e-2, 0, 0},
+    {0, 0, 0, 0, 0},
     {0, 0, 0, 1e-4, 0},
-    {0, 0, 0, 0, 1e-2},
+    {0, 0, 0, 0, 1e-3},
   };
 */
   P1[0][0] += 1e-2f;
   P1[1][1] += 1e-4f;
-  P1[2][2] += 1e-2f;
+  // P1[2][2] += 0;
   P1[3][3] += 1e-4f;
-  P1[4][4] += 1e-2f;
+  P1[4][4] += 1e-3f;
 
   float A_1 = x1[1];
   float θ_1 = x1[2];
