@@ -220,9 +220,9 @@ int main()
 
   // Driver PWMs, TIM3
   gpio_init.Mode = GPIO_MODE_AF_PP;
-  // gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
   gpio_init.Pull = GPIO_NOPULL;
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+
   gpio_init.Pin = DRV_IN_U_PIN;
   gpio_init.Alternate = GPIO_AF1_TIM3;
   HAL_GPIO_Init(DRV_IN_U_PORT, &gpio_init);
@@ -232,9 +232,6 @@ int main()
   gpio_init.Pin = DRV_IN_W_PIN;
   gpio_init.Alternate = GPIO_AF1_TIM3;
   HAL_GPIO_Init(DRV_IN_W_PORT, &gpio_init);
-  HAL_GPIO_WritePin(DRV_IN_U_PORT, DRV_IN_U_PIN, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(DRV_IN_V_PORT, DRV_IN_V_PIN, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(DRV_IN_W_PORT, DRV_IN_W_PIN, GPIO_PIN_RESET);
 
   // Timer
   // APB1 = 64 MHz
@@ -286,19 +283,6 @@ int main()
 
   // ======== I2C ========
   gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12;
-/*
-  // Test direct open-drain output
-  gpio_init.Mode = GPIO_MODE_OUTPUT_OD;
-  gpio_init.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOA, &gpio_init);
-  while (1) {
-    static bool parity = 0;
-    HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, parity);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, parity);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, parity ^= 1);
-    HAL_Delay(3000);
-  }
-*/
   gpio_init.Mode = GPIO_MODE_AF_PP;
   gpio_init.Alternate = GPIO_AF6_I2C2;
   gpio_init.Pull = GPIO_NOPULL;
@@ -310,11 +294,15 @@ int main()
   i2c2 = (I2C_HandleTypeDef){
     .Instance = I2C2,
     .Init = {
+      // AS5600 datasheet p. 12
+      // f_SCL <= 1 MHz, t_LOW >= 0.5 us, t_HIGH >= 0.26 us
+
       // RM0454 Rev 5, pp. 711, 726, 738 (examples), 766
-      // APB = 64 MHz, fast mode f_SCL = 100 kHz
-      // PRESC = 15, SCLDEL = 0x4, SDADEL = 0x2,
-      // SCLH = 0x0F, SCLH = 0x0F, SCLL = 0x13
-      .Timing = 0xF0420F13,
+      // APB = 64 MHz
+      // PRESC = 3 (1 / (64 MHz / (3+1)) = 0.0625 us)
+      // SCLH = SCLL = 7 (0.5 us) -> f_SCL = 1 MHz
+      // SCLDEL = 1, SDADEL = 1
+      .Timing = 0x30110707,
       .OwnAddress1 = 0x00,
       .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
     },
@@ -336,7 +324,6 @@ int main()
       // angle normalized into [0, 36000000) (36000000 = 1/3 revolution)
       int angle = (int)(0.5f + 72000000 + 72000000 * t);
       drive_motor(angle);
-      // T
       chroma_timers[chroma]->CCR1 = 4000 * t;
     }
     static int parity = 1;
@@ -359,61 +346,6 @@ int main()
         HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, parity ^ (i & 1));
         HAL_Delay(200);
       }
-    }
-  }
-
-  // Read registers from AS5600
-  while (1) {
-    uint8_t status = 0, agc = 0;
-    uint8_t raw_angle[2];
-    HAL_StatusTypeDef r1 = HAL_I2C_Mem_Read(&i2c2, 0x36 << 1, 0x0B, I2C_MEMADD_SIZE_8BIT, &status, 1, 1000);
-    HAL_StatusTypeDef r2 = HAL_I2C_Mem_Read(&i2c2, 0x36 << 1, 0x1A, I2C_MEMADD_SIZE_8BIT, &agc, 1, 1000);
-    HAL_StatusTypeDef r3 = HAL_I2C_Mem_Read(&i2c2, 0x36 << 1, 0x0E, I2C_MEMADD_SIZE_8BIT, raw_angle, 2, 1000);
-    swv_printf("status = %02x, AGC = %02x, raw angle = %4u, returned status = %d %d %d\n",
-      status & 0x38, agc, ((uint32_t)raw_angle[0] << 8) | raw_angle[1], r1, r2, r3);
-    // status = 10, AGC = 80, raw angle = xxxx
-    // status = 20, AGC = <80, raw angle = xxxx
-    // status bit 5: MD, bit 4: ML, bit 3: MH
-    HAL_Delay(200);
-/*
-    if (status & 0x20) {
-      // MD: Magnet detected
-      if (!(status & 0x18)) {
-        // No ML or MH: within recommended magnitude range
-        uint32_t a = ((uint32_t)raw_angle[0] << 8) | raw_angle[1];
-        TIM14->CCR1 = abs(a - 2048) * 6;
-        TIM16->CCR1 = (2048 - abs(a - 2048)) * 5;
-        TIM17->CCR1 = 1000;
-      } else {
-        // Out of range
-        TIM14->CCR1 = 0;
-        TIM16->CCR1 = 0;
-        TIM17->CCR1 = 4000;
-      }
-    } else {
-      TIM14->CCR1 = 0;
-      TIM16->CCR1 = 0;
-      TIM17->CCR1 = 0;
-    }
-    HAL_Delay(1);
-*/
-  }
-
-  // ======== Main loop ========
-  while (true) {
-    for (int i = 0; i <= 10800; i += 3) {
-      uint32_t duty[3] = {0, 0, 0};
-      for (int k = 0; k < 3; k++) {
-        int dist1 = abs(i - (2700 + 3600 * k));
-        int dist2 = abs(i + 10800 - (2700 + 3600 * k));
-        int dist = (dist1 < dist2 ? dist1 : dist2);
-        if (dist < 2700)
-          duty[k] = 16000 - dist * 16000 / 2700;
-      }
-      TIM14->CCR1 = duty[0];
-      TIM16->CCR1 = duty[1];
-      TIM17->CCR1 = duty[2];
-      HAL_Delay(3);
     }
   }
 }
