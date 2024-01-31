@@ -1000,14 +1000,17 @@ if (0) {
   quat q_ref = (quat){0, 0, 0, 1};
   float m_tfm[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
   vec3 m_cen = (vec3){0, 0, 0};
-  float ekf_x[5] = {40, 1, 0, 1, 0};
+  float ekf_x[5] = {10, 1, 0, 1, 0};
   float ekf_P[5][5] = {
-    {30, 0, 0, 0, 0},
+    {5, 0, 0, 0, 0},
     {0, 1, 0, 0, 0},
     {0, 0, 4, 0, 0},
     {0, 0, 0, 1, 0},
     {0, 0, 0, 0, 4},
   };
+
+  vec3 acc_history[300];
+  int acc_ptr = 0;
 
   // ======== Main loop ========
 
@@ -1018,8 +1021,6 @@ if (0) {
 
   int16_t mag_out[3], acc_out[3], gyr_out[3];
   int32_t music_phase;
-
-  vec3 gyr_calibrated;
 
   struct proceed_t read_bmi270_and_update() {
     uint8_t data[24];
@@ -1054,6 +1055,38 @@ if (0) {
     vec3 mag = (vec3){(float)mag_out[0], (float)mag_out[1], (float)mag_out[2]};
     float magScale = 2.f / 1024;  // unit = 0.5 G = 0.05 mT ≈ geomagnetic field
     mag = vec3_scale(mag, magScale);
+
+    // In calibration phase?
+    if (acc_ptr < 300) {
+      acc_history[acc_ptr++] = acc;
+      if (acc_ptr == 300) {
+        // Check average distance
+        vec3 acc_avg = (vec3){ 0 };
+        for (int i = 0; i < 300; i++)
+          acc_avg = vec3_add(acc_avg, acc_history[i]);
+        acc_avg = vec3_scale(acc_avg, 1.0f / 300);
+        float dist = 0;
+        for (int i = 0; i < 300; i++)
+          dist += vec3_distsq(acc_avg, acc_history[i]);
+        dist /= (300UL * 8192 * 8192);  // 8192 counts = 1g
+        // swv_printf("%05d\n", (int)(dist * 10000));
+        if (dist > 0.1) {
+          // Retry
+          TIM17->CCR1 = 400;
+          for (int i = 0; i < 200; i++)
+            acc_history[i] = acc_history[i + 100];
+          acc_ptr = 200;
+          HAL_Delay(100);
+          TIM17->CCR1 = 0;
+        } else {
+          // Calibrated!
+          q_ref = rot_from_endpoints(acc_avg, (vec3){0, 0, 1});
+          TIM17->CCR1 = 400;
+          TIM16->CCR1 = 400;
+        }
+      }
+    }
+
     vec3 acc_raw = acc;
     vec3 gyr_raw = gyr;
     vec3 mag_raw = mag;
@@ -1068,27 +1101,14 @@ if (0) {
     static struct filter xy_f = { 0 };
     float xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
 
-    // xy_ori_filtered = 0;
-    gyr_calibrated =
+    vec3 gyr_calibrated =
       vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), 1.f / (16.384 * 360));
-    /* swv_printf("read-out %d %d %d, xy_ori_filtered %d, calibrated %d %d %d\n",
-      (int)gyr_out[0], (int)gyr_out[1], (int)gyr_out[2],
-      (int)(xy_ori_filtered * 10000),
-      (int)(gyr_calibrated.x * 10000),
-      (int)(gyr_calibrated.y * 10000),
-      (int)(gyr_calibrated.z * 10000)
-    ); */
     /* swv_printf("EKF step %6d %6d | gyr %6d %6d\n",
       (int)(gyr_calibrated.x * 100000), (int)(gyr_calibrated.y * 100000),
       (int)(gyr.x / (16.384 * 360) * 100000),
       (int)(gyr.y / (16.384 * 360) * 100000)); */
     float z[2] = {gyr_calibrated.x, gyr_calibrated.y};
     ekf_step(ekf_x, ekf_P, z);
-    // swv_printf("%07d ", (int)(xy_ori_filtered * 1000000));
-    /* swv_printf("%07d %07d\n",
-      (int)(gyr_calibrated.x * 1000000),
-      (int)(gyr_calibrated.y * 1000000)
-    ); */
 
     float ω = ekf_x[0];
     float A = ekf_x[1];
@@ -1103,20 +1123,12 @@ if (0) {
       (int)((cen_phase - θ) * 1000)); */
     music_phase = (int32_t)(fmodf(cen_phase - θ, M_PI * 2) * 1000000);
 
+  /*
   #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
     TIM17->CCR1 = (HAL_GetTick() % 2048 <= 50 && (HAL_GetTick() / 6144) % 3 != 1) ? 300 : 0;
     TIM16->CCR1 = (HAL_GetTick() % 2048 <= 50 && (HAL_GetTick() / 6144) % 3 != 0) ? 300 : 0;
     TIM14->CCR1 = 0;
-
-/*
-    static int count = 0;
-    if (++count == 20) {
-      HAL_GPIO_WritePin(VDDSUB_G_PORT, VDDSUB_G_PIN, 1);
-      swv_printf("Test turning off VDDSUB\n");
-    } else if (count == 40) {
-      HAL_GPIO_WritePin(VDDSUB_G_PORT, VDDSUB_G_PIN, 0);
-    }
-*/
+  */
 
     return (struct proceed_t){read_bmi270_and_update, 10};
   }
@@ -1172,22 +1184,16 @@ if (0) {
   */
     buf[p++] = (music_phase >> 24) & 0xFF;
     buf[p++] = (music_phase >> 16) & 0xFF;
-    // buf[p++] = (music_phase >>  8) & 0xFF;
-    // buf[p++] = (music_phase >>  0) & 0xFF;
+    buf[p++] = (music_phase >>  8) & 0xFF;
+    buf[p++] = (music_phase >>  0) & 0xFF;
+  /*
     int16_t value_B = (int16_t)(ekf_x[3] * 10000);
     buf[p++] = (value_B >> 8) & 0xFF;
     buf[p++] = (value_B >> 0) & 0xFF;
+  */
     int16_t value_A = (int16_t)(ekf_x[1] * 10000);
     buf[p++] = (value_A >> 8) & 0xFF;
     buf[p++] = (value_A >> 0) & 0xFF;
-  /*
-    int16_t value_gyr_x = (int16_t)(gyr_calibrated.x * 10000);
-    buf[p++] = (value_gyr_x >> 8) & 0xFF;
-    buf[p++] = (value_gyr_x >> 0) & 0xFF;
-    int16_t value_gyr_y = (int16_t)(gyr_calibrated.y * 10000);
-    buf[p++] = (value_gyr_y >> 8) & 0xFF;
-    buf[p++] = (value_gyr_y >> 0) & 0xFF;
-  */
   /*
     for (int i = 0; i < 3; i++) {
       buf[p++] = acc_out[i] >> 8;

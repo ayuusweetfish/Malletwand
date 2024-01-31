@@ -351,9 +351,9 @@ int main() {
         printf("%10.7f\n", cen_phase);
       #else
         float music_phase =
-          // (float)(((int32_t)mag_out[0] << 16) | (int32_t)(uint16_t)mag_out[1]) / 1000000;
-          (float)mag_out[0] * 65536 / 1000000;
-        float raw_B = (float)mag_out[1] / 10000;
+          (float)(((int32_t)mag_out[0] << 16) | (int32_t)(uint16_t)mag_out[1]) / 1000000;
+          // (float)mag_out[0] * 65536 / 1000000;
+        float raw_B = 0;  // (float)mag_out[1] / 10000;
         float raw_A = (float)mag_out[2] / 10000;
         float raw_omega = (float)acc_out[0] / 1000;
         float raw_theta = (float)acc_out[1] / 1000;
