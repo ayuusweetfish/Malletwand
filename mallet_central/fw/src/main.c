@@ -94,19 +94,6 @@ int main()
 
   // ======== I2C ========
   gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12;
-/*
-  // Test direct open-drain output
-  gpio_init.Mode = GPIO_MODE_OUTPUT_OD;
-  gpio_init.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOA, &gpio_init);
-  while (1) {
-    static bool parity = 0;
-    HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, parity);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, parity);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, parity ^= 1);
-    HAL_Delay(3000);
-  }
-*/
   gpio_init.Mode = GPIO_MODE_AF_PP;
   gpio_init.Alternate = GPIO_AF6_I2C2;
   gpio_init.Pull = GPIO_NOPULL;
@@ -118,11 +105,7 @@ int main()
   i2c2 = (I2C_HandleTypeDef){
     .Instance = I2C2,
     .Init = {
-      // RM0454 Rev 5, pp. 711, 726, 738 (examples), 766
-      // APB = 64 MHz, fast mode f_SCL = 100 kHz
-      // PRESC = 15, SCLDEL = 0x4, SDADEL = 0x2,
-      // SCLH = 0x0F, SCLH = 0x0F, SCLL = 0x13
-      .Timing = 0xF0420F13,
+      .Timing = 0xF0110707,
       .OwnAddress1 = 0x00,
       .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
     },
@@ -133,6 +116,20 @@ int main()
   while (true) {
     HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(500);
     HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(500);
+
+    i2c2.ErrorCode = 0;
+    HAL_StatusTypeDef sub_ready = HAL_I2C_IsDeviceReady(&i2c2, 0xAA, 3, 1000);
+    swv_printf("sub ready status: %d, err code: %d\n", sub_ready, i2c2.ErrorCode);
+
+    uint8_t data[2] = {0x12, 0x34};
+    i2c2.ErrorCode = 0;
+    HAL_StatusTypeDef tx_result = HAL_I2C_Master_Transmit(&i2c2, 0xAA, data, 2, 1000);
+    swv_printf("%d %d\n", tx_result, i2c2.ErrorCode);
+    if (tx_result == 0 && i2c2.ErrorCode == 0)
+      for (int i = 0; i < 10; i++) {
+        HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(100);
+        HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(100);
+      }
   }
 }
 

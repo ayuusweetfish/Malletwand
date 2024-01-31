@@ -30,7 +30,7 @@
 #define DRV_IN_W_PIN  GPIO_PIN_0
 
 TIM_HandleTypeDef tim14, tim16, tim17, tim3;
-I2C_HandleTypeDef i2c2;
+I2C_HandleTypeDef i2c1, i2c2;
 
 static uint8_t swv_buf[256];
 static size_t swv_buf_ptr = 0;
@@ -281,7 +281,32 @@ int main()
   HAL_GPIO_Init(DRV_EN_PORT, &gpio_init);
   HAL_GPIO_WritePin(DRV_EN_PORT, DRV_EN_PIN, 1);
 
-  // ======== I2C ========
+  // ======== I2C 1 (unit interface) ========
+  gpio_init.Pin = GPIO_PIN_8 | GPIO_PIN_9;
+  gpio_init.Mode = GPIO_MODE_AF_PP;
+  gpio_init.Alternate = GPIO_AF6_I2C1;
+  gpio_init.Pull = GPIO_NOPULL;
+  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOB, &gpio_init);
+
+  __HAL_RCC_I2C1_CLK_ENABLE();
+  HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C1);
+  i2c1 = (I2C_HandleTypeDef){
+    .Instance = I2C1,
+    .Init = {
+      .Timing = 0xF0110707,
+      .OwnAddress1 = 0xAA,
+      .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
+      .GeneralCallMode = I2C_GENERALCALL_ENABLE,
+    },
+  };
+  HAL_I2C_Init(&i2c1);
+
+  HAL_NVIC_SetPriority(I2C1_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(I2C1_IRQn);
+  HAL_I2C_EnableListen_IT(&i2c1);
+
+  // ======== I2C 2 (encoder) ========
   gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12;
   gpio_init.Mode = GPIO_MODE_AF_PP;
   gpio_init.Alternate = GPIO_AF6_I2C2;
@@ -357,4 +382,76 @@ void SysTick_Handler()
 
   // if (HAL_GetTick() % 500 == 0)
   //   HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, HAL_GetTick() % 1000 == 0);
+}
+
+static uint8_t i2c_rx_buf[2];
+
+void I2C1_IRQHandler()
+{
+  if (I2C1->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR)) {
+    HAL_I2C_ER_IRQHandler(&i2c1);
+  } else {
+    HAL_I2C_EV_IRQHandler(&i2c1);
+  }
+}
+
+void NMI_Handler() { while (1) { } }
+void HardFault_Handler() { while (1) { } }
+void SVC_Handler() { while (1) { } }
+void PendSV_Handler() { while (1) { } }
+void WWDG_IRQHandler() { while (1) { } }
+void RTC_TAMP_IRQHandler() { while (1) { } }
+void FLASH_IRQHandler() { while (1) { } }
+void RCC_IRQHandler() { while (1) { } }
+void EXTI0_1_IRQHandler() { while (1) { } }
+void EXTI2_3_IRQHandler() { while (1) { } }
+void EXTI4_15_IRQHandler() { while (1) { } }
+void DMA1_Channel1_IRQHandler() { while (1) { } }
+void DMA1_Channel2_3_IRQHandler() { while (1) { } }
+void DMA1_Ch4_5_DMAMUX1_OVR_IRQHandler() { while (1) { } }
+void ADC1_IRQHandler() { while (1) { } }
+void TIM1_BRK_UP_TRG_COM_IRQHandler() { while (1) { } }
+void TIM1_CC_IRQHandler() { while (1) { } }
+void TIM3_IRQHandler() { while (1) { } }
+void TIM14_IRQHandler() { while (1) { } }
+void TIM16_IRQHandler() { while (1) { } }
+void TIM17_IRQHandler() { while (1) { } }
+void I2C2_IRQHandler() { while (1) { } }
+void SPI1_IRQHandler() { while (1) { } }
+void SPI2_IRQHandler() { while (1) { } }
+void USART1_IRQHandler() { while (1) { } }
+void USART2_IRQHandler() { while (1) { } }
+
+void HAL_I2C_AddrCallback(I2C_HandleTypeDef *i2c, uint8_t TransferDirection, uint16_t AddrMatchCode)
+{
+  if (TransferDirection == I2C_DIRECTION_TRANSMIT) {
+    HAL_I2C_Slave_Seq_Receive_IT(i2c, i2c_rx_buf, 2, I2C_FIRST_AND_LAST_FRAME);
+  }
+}
+
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *i2c)
+{
+  swv_printf("Received %02x %02x\n", i2c_rx_buf[0], i2c_rx_buf[1]);
+  int parity = 0;
+  for (int i = 0; i < 20; i++) {
+    HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, parity ^= 1);
+    HAL_Delay(100);
+  }
+}
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *i2c)
+{
+  // This can be triggered on device-ready probe (HAL_I2C_IsDeviceReady)
+  // since there is no data to be received in this scenario
+
+  // However, the listen cannot be restarted here as i2c->State is still HAL_I2C_STATE_LISTEN
+  // See stm32g0xx_hal_i2c.c:5868 <I2C_ITSlaveCplt>
+}
+
+void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *i2c)
+{
+  // Device-ready probes will also invoke this subroutine
+  if (i2c == &i2c1) {
+    HAL_I2C_EnableListen_IT(i2c);
+  }
 }
