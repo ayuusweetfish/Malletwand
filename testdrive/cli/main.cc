@@ -65,22 +65,85 @@ static inline void btex_update(beat_extrapolator *btex, float time, float value)
 }
 static inline float btex_estimate(beat_extrapolator *btex, float time)
 {
+  int last = (btex->hist_head + BTEX_HIST_SIZE - 1) % BTEX_HIST_SIZE;
+  float last_time = btex->history[last][0] - 0.1f;
+  float last_value = btex->history[last][1];
   // Remove history records that are more than 1 second old
   while (btex->hist_head != btex->hist_tail
-      && btex->history[btex->hist_tail][0] < time - 1)
+      && btex->history[btex->hist_tail][0] < last_time - 1.0f)
     btex->hist_tail = (btex->hist_tail + 1) % BTEX_HIST_SIZE;
-  int last = (btex->hist_head + BTEX_HIST_SIZE - 1) % BTEX_HIST_SIZE;
+/*
   // Ordinary least squares fit, Ak = y => k = A'y/A'A
   float AdotA = 0, AdotY = 0;
   for (int i = btex->hist_tail; i != btex->hist_head; i = (i + 1) % BTEX_HIST_SIZE) {
-    float a = btex->history[i][0] - btex->history[last][0];
-    float y = btex->history[i][1] - btex->history[last][1];
+    float a = btex->history[i][0] - last_time;
+    float y = btex->history[i][1] - last_value;
     AdotA += a * a;
     AdotY += a * y;
   }
-  if (AdotA == 0) return btex->history[last][1];
+  if (AdotA == 0) return last_value;
   float k = AdotY / AdotA;
-  return k * (time - btex->history[last][0]) + btex->history[last][1];
+  float x = k * (time - last_time);
+*/
+/*
+  // Ordinary least squares with bias
+  int n = 0;
+  float sum_a = 0, sum_a2 = 0;
+  for (int i = btex->hist_tail; i != btex->hist_head; i = (i + 1) % BTEX_HIST_SIZE) {
+    float a = btex->history[i][0];
+    n++;
+    sum_a += a;
+    sum_a2 += a * a;
+  }
+  if (n <= 1) return last_value;
+  float denom = n * sum_a2 - sum_a * sum_a;
+  float b1 = 0, b2 = 0;
+  for (int i = btex->hist_tail; i != btex->hist_head; i = (i + 1) % BTEX_HIST_SIZE) {
+    float a = btex->history[i][0];
+    float y = btex->history[i][1];
+    b1 += (n * a - sum_a) * y;
+    b2 += (sum_a2 - a * sum_a) * y;
+  }
+  float estimated = (b1 * time + b2) / denom;
+*/
+  // Weight least squares
+  const float scale = sqrtf(0.9f);
+  float w;
+  int i;
+  float sum_aa = 0, sum_aw = 0, sum_ww = 0;
+  w = 1;
+  i = btex->hist_head;
+  while (i != btex->hist_tail) {
+    i = (i + BTEX_HIST_SIZE - 1) % BTEX_HIST_SIZE;
+    float a = btex->history[i][0] * w;
+    sum_aa += a * a;
+    sum_aw += a * w;
+    sum_ww += w * w;
+    // printf("{%.7f,%.7f},", a, w);
+    w *= scale;
+  }
+  // inv(A' A) = [sum_ww, -sum_aw; -sum_aw, sum_aa] / denom
+  float denom = -sum_aw * sum_aw + sum_aa * sum_ww;
+  // printf("\n%.7f %.7f %.7f\n", sum_ww / denom, -sum_aw / denom, sum_aa / denom);
+  // inv(A' A) A' y
+  float b1 = 0, b2 = 0;
+  w = 1;
+  i = btex->hist_head;
+  while (i != btex->hist_tail) {
+    i = (i + BTEX_HIST_SIZE - 1) % BTEX_HIST_SIZE;
+    float a = btex->history[i][0] * w;
+    float y = btex->history[i][1] * w;
+    b1 += y * (a *  sum_ww + w * -sum_aw);
+    b2 += y * (a * -sum_aw + w *  sum_aa);
+    w *= scale;
+    // printf("%.7f,", y);
+  }
+  // printf("\n%.7f %.7f\n", b1 / denom, b2 / denom);
+  float estimated = (b1 * time + b2) / denom;
+  // Transform to suppress far-stretching estimations
+  float x = estimated - last_value;
+  if (x > 0.5f) x = 1 - 0.5f * expf(1 - 2 * x);
+  return x + btex->history[last][1];
 }
 
 int main() {
@@ -109,6 +172,8 @@ int main() {
       records[i][0], records[i][1],
       records[i][0] + 0.2, btex_estimate(&btex, records[i][0] + 0.2));
   }
+  printf("extrap 10: %.5f\n",  btex_estimate(&btex, 10));
+  printf("extrap 100: %.5f\n",  btex_estimate(&btex, 100));
   return 0;
 /*
   float A[3][3], c[3];
