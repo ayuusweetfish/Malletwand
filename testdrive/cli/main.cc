@@ -147,6 +147,7 @@ static inline float btex_estimate(beat_extrapolator *btex, float time)
 }
 
 int main() {
+/*
   struct beat_extrapolator btex = { 0 };
   const float records[][2] = {
     {5.5, 0.40},
@@ -175,7 +176,8 @@ int main() {
   printf("extrap 10: %.5f\n",  btex_estimate(&btex, 10));
   printf("extrap 100: %.5f\n",  btex_estimate(&btex, 100));
   return 0;
-/*
+*/
+
   float A[3][3], c[3];
   vec3 x[] = {
     (vec3){-0.048768226,  0.506737186, -1.114967264},
@@ -194,8 +196,14 @@ int main() {
     for (int j = 0; j < 3; j++)
       printf("%9.5f%c", A[i][j], j == 2 ? '\n' : ' ');
   for (int i = 0; i < 3; i++) printf("%9.5f%c", c[i], i == 2 ? '\n' : ' ');
-  return 0;
+/*
+  1.09168  -0.14614  -0.39980
+ -0.14614   1.09254   0.27063
+ -0.39980   0.27063   1.23914
+  0.30574   0.50784  -0.20860
 */
+  return 0;
+
   if (!SimpleBLE::Adapter::bluetooth_enabled()) {
     printf("Bluetooth not enabled\n");
     puts("Press Enter to exit"); getchar();

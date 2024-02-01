@@ -26,6 +26,7 @@ namespace rl {
 
 std::mutex readings_mutex;
 float music_phase, uncertainty;
+float omega;
 
 #define BTEX_HIST_SIZE 64
 struct beat_extrapolator {
@@ -141,7 +142,7 @@ int main() {
       if (result == -1) {
         identifiedAddrs[addr] = -1;
         addrCheckers.erase(addr);
-      } else {
+      } else if (result == 1) {
         printf("Identified device: %s\n", addr.c_str());
         recordedIdentification = identifiedAddrs[addr] = 1;
       }
@@ -152,7 +153,7 @@ int main() {
       payload[0] = x & 0xff;
       payload[1] = (x >> 8) & 0xff;
       for (int i = 0; i < y.length(); i++) payload[i + 2] = (uint8_t)y[i];
-      for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
+      // for (int i = 0; i < y.length() + 2; i++) printf(" %02x", payload[i]); putchar('\n');
       readings_mutex.lock();
       music_phase = (float)(
         ((uint32_t)payload[0] << 24) |
@@ -165,6 +166,12 @@ int main() {
         ((uint32_t)payload[5] << 16) |
         ((uint32_t)payload[6] <<  8) |
         ((uint32_t)payload[7] <<  0)
+      ) / 1000000;
+      omega = (float)(
+        ((uint32_t)payload[8] << 24) |
+        ((uint32_t)payload[9] << 16) |
+        ((uint32_t)payload[10] <<  8) |
+        ((uint32_t)payload[11] <<  0)
       ) / 1000000;
       readings_mutex.unlock();
     }
@@ -210,7 +217,7 @@ int main() {
         5,
         (rl::Color){64, 64, 64, 255}
       );
-      printf("%.7f\n", uncertainty);
+      printf("%.7f\n", omega);
       readings_mutex.unlock();
     rl::EndDrawing();
   }

@@ -28,24 +28,8 @@ void inv_mat3_sym(const float A[3][3], float inv[3][3])
       inv[j][i] = inv[i][j] = (adj[i][j] / det);
 }
 
-void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
+void elli_fit_insert(float psi[10][10], const vec3 x, double σ)
 {
-  static double t[3000][3][5];
-  for (int i = 0; i < m; i++) {
-    for (int d = 0; d < 3; d++) {
-      double ξ = vec3_component(x[i], d);
-      t[i][d][0] = 1;
-      t[i][d][1] = ξ;
-      t[i][d][2] = ξ*ξ - σ*σ;
-      t[i][d][3] = ξ * (ξ*ξ - 3*σ*σ);
-      t[i][d][4] = ξ*ξ * (ξ*ξ - 6*σ*σ) + 3*σ*σ*σ*σ;
-    }
-  }
-  /* for (int i = 0; i < m; i++)
-    for (int d = 0; d < 3; d++)
-      for (int k = 0; k < 5; k++)
-        printf("%d %d %d %.5f\n", i, d, k, t[i][d][k]); */
-
   static const uint8_t R[10][10][3] = {
     {{4,0,0}, {3,1,0}, {2,2,0}, {3,0,1}, {2,1,1}, {2,0,2}, {3,0,0}, {2,1,0}, {2,0,1}, {2,0,0}},
     {{0,0,0}, {2,2,0}, {1,3,0}, {2,1,1}, {1,2,1}, {1,1,2}, {2,1,0}, {1,2,0}, {1,1,1}, {1,1,0}},
@@ -58,15 +42,28 @@ void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
     {{0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,2}, {0,0,1}},
     {{0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}},
   };
-  float psi[10][10];
+  double t[3][5];
+  for (int d = 0; d < 3; d++) {
+    double ξ = vec3_component(x, d);
+    t[d][0] = 1;
+    t[d][1] = ξ;
+    t[d][2] = ξ*ξ - σ*σ;
+    t[d][3] = ξ * (ξ*ξ - 3*σ*σ);
+    t[d][4] = ξ*ξ * (ξ*ξ - 6*σ*σ) + 3*σ*σ*σ*σ;
+  }
   for (int p = 0; p < 10; p++)
     for (int q = p; q < 10; q++) {
-      psi[p][q] = 0;
-      for (int i = 0; i < m; i++)
-        psi[p][q] +=
-          t[i][0][R[p][q][0]] *
-          t[i][1][R[p][q][1]] *
-          t[i][2][R[p][q][2]];
+      psi[p][q] +=
+        t[0][R[p][q][0]] *
+        t[1][R[p][q][1]] *
+        t[2][R[p][q][2]];
+    }
+}
+
+void elli_fit_psi(float psi[10][10], float inv_tfm[3][3], float c[3])
+{
+  for (int p = 0; p < 10; p++)
+    for (int q = p; q < 10; q++) {
       if (p == 1 || p == 3 || p == 4) psi[p][q] *= 2;
       if (q == 1 || q == 3 || q == 4) psi[p][q] *= 2;
     }
@@ -163,6 +160,14 @@ void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
     for (int j = 0; j < 3; j++)
       printf("%9.5f%c", inv_tfm[i][j], j == 2 ? '\n' : ' ');
   for (int i = 0; i < 3; i++) printf("%9.5f%c", c[i], i == 2 ? '\n' : ' '); */
+}
+
+void elli_fit(int m, const vec3 *x, double σ, float inv_tfm[3][3], float c[3])
+{
+  float psi[10][10] = {{ 0 }};
+  for (int i = 0; i < m; i++)
+    elli_fit_insert(psi, x[i], σ);
+  elli_fit_psi(psi, inv_tfm, c);
 }
 
 // https://github.com/swedishembedded/control/blob/5327a24485f246f20cc79f98427bd330cb8c2b37/src/linalg/eig_sym.c
