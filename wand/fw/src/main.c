@@ -1021,6 +1021,8 @@ if (0) {
 
   int16_t mag_out[3], acc_out[3], gyr_out[3];
   int32_t music_phase_i;
+  int32_t uncertainty_i;
+  int16_t readings_timestamp = 0;
 
   struct proceed_t read_bmi270_and_update() {
     uint8_t data[24];
@@ -1049,6 +1051,8 @@ if (0) {
     ))
       // Ignoring invalid data at startup
       return (struct proceed_t){read_bmi270_and_update, 10};
+
+    readings_timestamp++;
 
     vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
     vec3 gyr = (vec3){(float)gyr_out[0], (float)gyr_out[1], (float)gyr_out[2]};
@@ -1125,6 +1129,12 @@ if (0) {
     static float last_music_phase = 0;
     music_phase_i = (int32_t)(music_phase * 1000000);
 
+    float P_norm = 0;
+    for (int i = 0; i < 5; i++)
+      for (int j = 0; j < 5; j++)
+        P_norm += ekf_P[i][j] * ekf_P[i][j];
+    uncertainty_i = (int)(P_norm * 1000000);
+
     static int colour = 0;
     static int colours[4][3] = {
       {500, 0, 0},
@@ -1183,49 +1193,33 @@ if (0) {
     buf[p++] = 0x74;
     buf[p++] = 0xD0;
     buf[p++] = 0xFD;
-  /*
-    buf[p++] = 4;     // AD length
-    buf[p++] = 0x08;  // Type: Shortened Local Name
-    buf[p++] = 'M';
-    buf[p++] = 'l';
-    buf[p++] = 't';
-  */
-    buf[p++] = 20;    // AD length
+    buf[p++] = 12;    // AD length
     buf[p++] = 0xFF;  // Type: Manufacturer Specific Data
-  /*
-    buf[p++] = 0xFF;
-    buf[p++] = 0xFF;
-  */
-  /*
-    static uint16_t timestamp = 0xAA00;
-    timestamp++;
-    buf[p++] = timestamp >> 8;
-    buf[p++] = timestamp & 0xFF;
-  */
+    buf[p++] = (music_phase_i >> 24) & 0xFF;
+    buf[p++] = (music_phase_i >> 16) & 0xFF;
+    buf[p++] = (music_phase_i >>  8) & 0xFF;
+    buf[p++] = (music_phase_i >>  0) & 0xFF;
+    buf[p++] = (uncertainty_i >> 24) & 0xFF;
+    buf[p++] = (uncertainty_i >> 16) & 0xFF;
+    buf[p++] = (uncertainty_i >>  8) & 0xFF;
+    buf[p++] = (uncertainty_i >>  0) & 0xFF;
+    buf[p++] = readings_timestamp >> 8;
+    buf[p++] = readings_timestamp & 0xFF;
   /*
     for (int i = 0; i < 3; i++) {
       buf[p++] = mag_out[i] >> 8;
       buf[p++] = mag_out[i] & 0xFF;
     }
-  */
-    buf[p++] = (music_phase_i >> 24) & 0xFF;
-    buf[p++] = (music_phase_i >> 16) & 0xFF;
-    buf[p++] = (music_phase_i >>  8) & 0xFF;
-    buf[p++] = (music_phase_i >>  0) & 0xFF;
-  /*
     int16_t value_B = (int16_t)(ekf_x[3] * 10000);
     buf[p++] = (value_B >> 8) & 0xFF;
     buf[p++] = (value_B >> 0) & 0xFF;
-  */
     int16_t value_A = (int16_t)(ekf_x[1] * 10000);
     buf[p++] = (value_A >> 8) & 0xFF;
     buf[p++] = (value_A >> 0) & 0xFF;
-  /*
     for (int i = 0; i < 3; i++) {
       buf[p++] = acc_out[i] >> 8;
       buf[p++] = acc_out[i] & 0xFF;
     }
-  */
     int16_t value_omega = (int16_t)(ekf_x[0] * 1000);
     buf[p++] = (value_omega >> 8) & 0xFF;
     buf[p++] = (value_omega >> 0) & 0xFF;
@@ -1239,6 +1233,7 @@ if (0) {
       buf[p++] = gyr_out[i] >> 8;
       buf[p++] = gyr_out[i] & 0xFF;
     }
+  */
     static int idx = 0;
     buf[p++] = "Mlt"[(idx = (idx + 1) % 3)];
     buf[1] = p - 2;   // Payload length
