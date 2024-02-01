@@ -439,10 +439,12 @@ int main()
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(100);
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(100);
     }
-    for (int i = 1800; i >= 0; i--) {
-      drive_motor(idle_elec_angle + i * 20000);
-      for (int i = 0; i < 1000; i++) asm volatile ("nop");
+    for (int i = 1700; i >= -100; i--) {
+      drive_motor(36000000 + idle_elec_angle + i * 20000);
+      for (int i = 0; i < 400; i++) asm volatile ("nop");
     }
+    TIM3->CCR1 = TIM3->CCR2 = TIM3->CCR3 = 0;
+    HAL_Delay(5);
     for (int i = 0; i < 1800; i++) {
       drive_motor(idle_elec_angle + i * 20000);
       for (int i = 0; i < 1000; i++) asm volatile ("nop");
