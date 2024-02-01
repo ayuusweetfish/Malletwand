@@ -49,7 +49,67 @@ static inline float filter_update(
   return f->i2;
 }
 
+#define BTEX_HIST_SIZE 64
+struct beat_extrapolator {
+  // Circular queue
+  float history[BTEX_HIST_SIZE][2];
+  int hist_tail, hist_head;
+};
+static inline void btex_update(beat_extrapolator *btex, float time, float value)
+{
+  btex->history[btex->hist_head][0] = time;
+  btex->history[btex->hist_head][1] = value;
+  btex->hist_head = (btex->hist_head + 1) % BTEX_HIST_SIZE;
+  if (btex->hist_head == btex->hist_tail)
+    btex->hist_tail = (btex->hist_tail + 1) % BTEX_HIST_SIZE;
+}
+static inline float btex_estimate(beat_extrapolator *btex, float time)
+{
+  // Remove history records that are more than 1 second old
+  while (btex->hist_head != btex->hist_tail
+      && btex->history[btex->hist_tail][0] < time - 1)
+    btex->hist_tail = (btex->hist_tail + 1) % BTEX_HIST_SIZE;
+  int last = (btex->hist_head + BTEX_HIST_SIZE - 1) % BTEX_HIST_SIZE;
+  // Ordinary least squares fit, Ak = y => k = A'y/A'A
+  float AdotA = 0, AdotY = 0;
+  for (int i = btex->hist_tail; i != btex->hist_head; i = (i + 1) % BTEX_HIST_SIZE) {
+    float a = btex->history[i][0] - btex->history[last][0];
+    float y = btex->history[i][1] - btex->history[last][1];
+    AdotA += a * a;
+    AdotY += a * y;
+  }
+  if (AdotA == 0) return btex->history[last][1];
+  float k = AdotY / AdotA;
+  return k * (time - btex->history[last][0]) + btex->history[last][1];
+}
+
 int main() {
+  struct beat_extrapolator btex = { 0 };
+  const float records[][2] = {
+    {5.5, 0.40},
+    {5.7, 0.50},
+    {5.9, 0.70},
+    {6.1, 0.66},
+    {6.3, 0.82},
+    {6.5, 0.91},
+    {6.7, 1.03},
+    {6.9, 1.12},
+    {7.1, 1.22},
+    {7.3, 1.35},
+    {7.5, 1.44},
+    {7.7, 1.51},
+    {7.9, 1.60},
+    {8.1, 1.70},
+    {8.3, 1.75},
+    {8.5, 1.87},
+  };
+  for (int i = 0; i < sizeof records / sizeof records[0]; i++) {
+    btex_update(&btex, records[i][0], records[i][1]);
+    printf("upd %.2f: %.2f -> extrap %.2f: %.5f\n",
+      records[i][0], records[i][1],
+      records[i][0] + 0.2, btex_estimate(&btex, records[i][0] + 0.2));
+  }
+  return 0;
 /*
   float A[3][3], c[3];
   vec3 x[] = {
