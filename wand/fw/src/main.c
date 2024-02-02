@@ -844,20 +844,25 @@ int main()
     // TX_ADDR: Set transmit address
 
   // Read register 0x06 (RF_SETUP)
-  HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_RESET);
-  uint8_t spi_tx[2] = {0x06, 0x00};
-  uint8_t spi_rx[2];
-  HAL_SPI_TransmitReceive(&spi1, spi_tx, spi_rx, 2, 1000);
-  HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_SET);
-  swv_printf("nRF24L01+ received status %02x %02x\n", spi_rx[0], spi_rx[1]);
-  if (spi_rx[0] != 0x0E || spi_rx[1] != 0x06) {
-    // Error? Try a reset
-    for (int i = 0; i < 11; i++) {
-      TIM17->CCR1 = 4000 * (i % 2);
-      HAL_Delay(120);
+  for (int attempts = 1; attempts <= 5; attempts++) {
+    HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_RESET);
+    uint8_t spi_tx[2] = {0x06, 0x00};
+    uint8_t spi_rx[2];
+    HAL_SPI_TransmitReceive(&spi1, spi_tx, spi_rx, 2, 1000);
+    HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_SET);
+    swv_printf("nRF24L01+ received status %02x %02x\n", spi_rx[0], spi_rx[1]);
+    if (spi_rx[0] == 0x0E || spi_rx[1] == 0x06)
+      break;
+    if (attempts == 5) {
+      // Error? Try a reset
+      for (int i = 0; i < 11; i++) {
+        TIM17->CCR1 = 4000 * (i % 2);
+        HAL_Delay(120);
+      }
+      HAL_Delay(500);
+      NVIC_SystemReset();
     }
-    HAL_Delay(500);
-    NVIC_SystemReset();
+    HAL_Delay(50);
   }
 
   TIM14->CCR1 = 4000;
@@ -1279,3 +1284,31 @@ void SysTick_Handler()
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
 }
+
+void NMI_Handler() { while (1) { } }
+void HardFault_Handler() { while (1) { } }
+void SVC_Handler() { while (1) { } }
+void PendSV_Handler() { while (1) { } }
+void WWDG_IRQHandler() { while (1) { } }
+void RTC_TAMP_IRQHandler() { while (1) { } }
+void FLASH_IRQHandler() { while (1) { } }
+void RCC_IRQHandler() { while (1) { } }
+void EXTI0_1_IRQHandler() { while (1) { } }
+void EXTI2_3_IRQHandler() { while (1) { } }
+void EXTI4_15_IRQHandler() { while (1) { } }
+void DMA1_Channel1_IRQHandler() { while (1) { } }
+void DMA1_Channel2_3_IRQHandler() { while (1) { } }
+void DMA1_Ch4_5_DMAMUX1_OVR_IRQHandler() { while (1) { } }
+void ADC1_IRQHandler() { while (1) { } }
+void TIM1_BRK_UP_TRG_COM_IRQHandler() { while (1) { } }
+void TIM1_CC_IRQHandler() { while (1) { } }
+void TIM3_IRQHandler() { while (1) { } }
+void TIM14_IRQHandler() { while (1) { } }
+void TIM16_IRQHandler() { while (1) { } }
+void TIM17_IRQHandler() { while (1) { } }
+void I2C1_IRQHandler() { while (1) { } }
+void I2C2_IRQHandler() { while (1) { } }
+void SPI1_IRQHandler() { while (1) { } }
+void SPI2_IRQHandler() { while (1) { } }
+void USART1_IRQHandler() { while (1) { } }
+void USART2_IRQHandler() { while (1) { } }
