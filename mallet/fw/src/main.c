@@ -339,6 +339,8 @@ int main()
   HAL_StatusTypeDef enc_ready = HAL_I2C_IsDeviceReady(&i2c2, 0x36 << 1, 3, 1000);
   swv_printf("encoder ready status: %d\n", (int)enc_ready);
 
+#define TESTRUN 1
+
   // Values increase clockwise
   uint16_t read_magenc() {
     // Read registers from AS5600
@@ -363,6 +365,9 @@ int main()
       HAL_StatusTypeDef r3 = HAL_I2C_Mem_Read(&i2c2, 0x36 << 1, 0x0E, I2C_MEMADD_SIZE_8BIT, raw_angle, 2, 1000);
       swv_printf("status = %02x, AGC = %02x, raw angle = %4u, returned status = %d %d %d, error = %d\n",
         status & 0x38, agc, ((uint32_t)raw_angle[0] << 8) | raw_angle[1], r1, r2, r3, (int)i2c2.ErrorCode);
+    #if TESTRUN
+      return 0;
+    #endif
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(200);
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(200);
     }
@@ -407,6 +412,28 @@ int main()
     }
   }
 
+#if TESTRUN
+  while (1) {
+    uint16_t mag_value = read_magenc();
+    swv_printf("mag encoder value = %u\n", (unsigned)mag_value);
+    static int chroma = 2;
+    static TIM_TypeDef *const chroma_timers[3] = {TIM14, TIM16, TIM17};
+    chroma = (chroma + 1) % 3;
+    TIM14->CCR1 = 0;
+    TIM16->CCR1 = 0;
+    TIM17->CCR1 = 0;
+    for (int i = 0; i < 1800; i += 1) {
+      float t = 1 - cosf((float)i / 1800 * 6.2831853f);
+      // angle normalized into [0, 36000000) (36000000 = 1/7 revolution)
+      int angle = (int)(0.5f + 72000000 - 18000000 * t);
+      drive_motor(angle);
+      chroma_timers[chroma]->CCR1 = 4000 * t;
+    }
+    static int parity = 1;
+    HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, parity ^= 1);
+  }
+#endif
+
   uint16_t rest_angle = wait_stablize();
   swv_printf("rest: %d\n", (int)rest_angle);
 
@@ -449,25 +476,6 @@ int main()
       drive_motor(idle_elec_angle + i * 20000);
       for (int i = 0; i < 1000; i++) asm volatile ("nop");
     }
-  }
-
-  while (1) {
-    static int chroma = 2;
-    static TIM_TypeDef *const chroma_timers[3] = {TIM14, TIM16, TIM17};
-    chroma = (chroma + 1) % 3;
-    TIM14->CCR1 = 0;
-    TIM16->CCR1 = 0;
-    TIM17->CCR1 = 0;
-    for (int i = 0; i < 1800; i += 1) {
-      float t = 1 - cosf((float)i / 1800 * 6.2831853f);
-      // angle normalized into [0, 36000000) (36000000 = 1/7 revolution)
-      int angle = (int)(0.5f + 72000000 - 18000000 * t);
-      drive_motor(angle);
-      chroma_timers[chroma]->CCR1 = 4000 * t;
-    }
-    static int parity = 1;
-    HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, parity ^= 1);
-
   }
 }
 
