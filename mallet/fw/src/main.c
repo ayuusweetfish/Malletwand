@@ -339,7 +339,7 @@ int main()
   HAL_StatusTypeDef enc_ready = HAL_I2C_IsDeviceReady(&i2c2, 0x36 << 1, 3, 1000);
   swv_printf("encoder ready status: %d\n", (int)enc_ready);
 
-#define TESTRUN 1
+#define TESTRUN 0
 
   // Values increase clockwise
   uint16_t read_magenc() {
@@ -454,27 +454,44 @@ int main()
     for (int i = 0; i < 12000; i++) asm volatile ("nop");
   }
 
-  int idle_elec_angle = (int)(36000000 +
+  int rest_elec_angle = (int)(36000000 +
     (uint64_t)((rest_angle - elec_zero_angle + 4096) % 4096) * 36000000 * 7 / 4096);
   for (int i = 0; i < 1800; i++) {
-    drive_motor(idle_elec_angle + i * 20000);
-    for (int i = 0; i < 1000; i++) asm volatile ("nop");
+    drive_motor(rest_elec_angle + i * 20000);
+    for (int i = 0; i < 500; i++) asm volatile ("nop");
   }
 
   while (1) {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 5; i++) {
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(100);
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(100);
     }
-    for (int i = 1700; i >= -100; i--) {
-      drive_motor(36000000 + idle_elec_angle + i * 20000);
+    for (int i = 1800; i >= 0; i--) {
+      float x = i / 1800.f;
+      x = (1 - (1 - x) * (1 - x)) * 1800;
+      drive_motor(36000000 + rest_elec_angle + x * 20000);
       for (int i = 0; i < 400; i++) asm volatile ("nop");
     }
     TIM3->CCR1 = TIM3->CCR2 = TIM3->CCR3 = 0;
-    HAL_Delay(5);
-    for (int i = 0; i < 1800; i++) {
-      drive_motor(idle_elec_angle + i * 20000);
+    uint32_t wait_start_tick = HAL_GetTick();
+    // 30 counts = 360 / 4096 * 30 deg = 2.64 deg
+    while (((int)read_magenc() - rest_angle - 30 + 8192) % 4096 < 2048
+      && HAL_GetTick() - wait_start_tick < 200
+    ) {
+      // Wait while position is greater (higher, more clockwise) than rest position
+      // nop
+    }
+    uint32_t hit_tick = HAL_GetTick();
+    HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1);
+    HAL_Delay(3);
+    int cur_pos = read_magenc();
+    for (int i = cur_pos; i <= rest_angle + 4096 / 7; i += 1) {
+      int elec_angle = (int)(36000000 +
+        (uint64_t)((i - elec_zero_angle + 4096) % 4096) * 36000000 * 7 / 4096);
+      drive_motor(elec_angle);
       for (int i = 0; i < 1000; i++) asm volatile ("nop");
+      if (HAL_GetTick() - hit_tick >= 50)
+        HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0);
     }
   }
 }
