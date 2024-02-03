@@ -355,7 +355,7 @@ int main()
   HAL_StatusTypeDef enc_ready = HAL_I2C_IsDeviceReady(&i2c2, 0x36 << 1, 3, 1000);
   swv_printf("encoder ready status: %d\n", (int)enc_ready);
 
-#define TESTRUN 0
+#define TESTRUN 1
 
   // Values increase clockwise
   uint16_t read_magenc() {
@@ -382,6 +382,11 @@ int main()
       swv_printf("status = %02x, AGC = %02x, raw angle = %4u, returned status = %d %d %d, error = %d\n",
         status & 0x38, agc, ((uint32_t)raw_angle[0] << 8) | raw_angle[1], r1, r2, r3, (int)i2c2.ErrorCode);
     #if TESTRUN
+      if (!(r1 == 0 && r2 == 0 && r3 == 0 && i2c2.ErrorCode == 0))
+        for (int i = 0; i < 20; i++) {
+          HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(50);
+          HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(50);
+        }
       return 0;
     #endif
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(200);
