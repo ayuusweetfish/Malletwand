@@ -502,11 +502,17 @@ int main()
     }
     uint32_t hit_tick = HAL_GetTick();
     HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1);
+    // Raise after the free fall
     HAL_Delay(3);
     int cur_pos = read_magenc();
-    for (int i = cur_pos; i <= rest_angle + 4096 / 7; i += 1) {
+    // delta = rest_angle + 4096 / 7 - cur_pos
+    int delta = (rest_angle + 4096 / 7 - cur_pos + 2048 + 4096) % 4096 - 2048;
+    for (int i = 0; i < 500; i++) {
+      float progress = (float)(i + 1) / 500;
+      progress = 1 - (1 - progress) * (1 - progress) * (1 - progress);
+      uint16_t target_angle = cur_pos + delta * progress;
       int elec_angle = (int)(36000000 +
-        (uint64_t)((i - elec_zero_angle + 4096) % 4096) * 36000000 * 7 / 4096);
+        (uint64_t)((target_angle - elec_zero_angle + 4096) % 4096) * 36000000 * 7 / 4096);
       drive_motor(elec_angle);
       for (int i = 0; i < 1000; i++) asm volatile ("nop");
       if (HAL_GetTick() - hit_tick >= 50)
