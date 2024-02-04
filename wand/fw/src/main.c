@@ -1124,6 +1124,10 @@ int main()
     uncertainty_i = (int)(P_norm * 1000000);
     omega_i = (int)(ω * 1000000);
 
+    // Display colour for a player?
+    const bool PLAYER_MODE = true;
+    const int PLAYER_COLOUR[3] = {0, 800, 2000};
+
     static int colour = 0;
     static int colours[4][3] = {
       {500, 0, 0},
@@ -1133,10 +1137,10 @@ int main()
     };
     bool going_forward =
       fmodf(music_phase - last_music_phase + M_PI * 2, M_PI * 2) < M_PI;
-    if (acc_ptr == 300 && going_forward
+    if (!PLAYER_MODE && acc_ptr == 300 && going_forward
       && floorf(last_music_phase / M_PI) != floorf(music_phase / M_PI)
     ) {
-      colour = (colour + 1) % 4;
+      colour = (colour + 1) % (sizeof colours / sizeof colours[0]);
       TIM17->CCR1 = colours[colour][0];
       TIM16->CCR1 = colours[colour][1];
       TIM14->CCR1 = colours[colour][2];
@@ -1147,6 +1151,24 @@ int main()
     } else {
       TIM14->CCR1 = 300; TIM16->CCR1 = TIM17->CCR1 = 0;
     } */
+
+    if (PLAYER_MODE && acc_ptr == 300) {
+      float intensity = 0;
+      // `last_music_phase` in [0, 2pi), fastest positions at integral multiples of pi
+    /*
+      intensity = fabsf(fmodf(last_music_phase, M_PI) - M_PI / 2) / (M_PI / 2);
+      intensity = intensity * intensity;
+      intensity = intensity * intensity;
+    */
+      float x = fmodf(last_music_phase, M_PI) / M_PI;
+      if (x >= 0.96)
+        intensity = (x - 0.96) * 10;
+      if (x < 0.15)
+        intensity = 1 - (x / 0.15) * (x / 0.15);
+      TIM17->CCR1 = PLAYER_COLOUR[0] * intensity;
+      TIM16->CCR1 = PLAYER_COLOUR[1] * intensity;
+      TIM14->CCR1 = PLAYER_COLOUR[2] * intensity;
+    }
 
   /*
   #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
