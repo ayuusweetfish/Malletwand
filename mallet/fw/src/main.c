@@ -225,6 +225,7 @@ int main()
       .RepetitionCounter = 0,
     },
   };
+  TIM17->CCR1 = 0;
   HAL_TIM_OC_Init(&tim17);
   HAL_TIM_OC_Start_IT(&tim17, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT(&tim17);
@@ -544,17 +545,21 @@ void SysTick_Handler()
 void TIM17_IRQHandler()
 {
   // HAL_TIM_IRQHandler(&tim17);
+  uint32_t sr = TIM17->SR;
+  uint32_t clear_mask = 0xffffffffu;
+  bool on = false;
   // Period elapsed, and OC not triggered too fast (within a few cycles)?
-  if (TIM17->SR & TIM_IT_UPDATE) {
-    TIM17->SR &= ~TIM_IT_UPDATE;
-    if (!(TIM17->SR & TIM_FLAG_CC1))
-      LED_OUT_B_PORT->BSRR = (uint32_t)LED_OUT_B_PIN << 16;
+  if (sr & TIM_IT_UPDATE) {
+    clear_mask &= ~TIM_IT_UPDATE;
+    on = true;
   }
   // Output-compare delay elapsed?
-  if (TIM17->SR & TIM_FLAG_CC1) {
-    TIM17->SR &= ~TIM_FLAG_CC1;
-    LED_OUT_B_PORT->BSRR = LED_OUT_B_PIN;
+  if (sr & TIM_FLAG_CC1) {
+    clear_mask &= ~TIM_FLAG_CC1;
+    on = false;
   }
+  LED_OUT_B_PORT->BSRR = (uint32_t)LED_OUT_B_PIN << (on ? 16 : 0);
+  TIM17->SR &= clear_mask;
 }
 
 /*
