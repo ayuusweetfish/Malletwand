@@ -478,8 +478,13 @@ int main()
     HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0);
   }
 
+  // Start of calibration
+  TIM14->CCR1 = TIM16->CCR1 = 2500; TIM17->CCR1 = 4000;
+
   uint16_t rest_angle = wait_stablize();
   swv_printf("rest: %d\n", (int)rest_angle);
+
+  TIM14->CCR1 = TIM16->CCR1 = TIM17->CCR1 = 0;
 
   for (int i = 0; i < 3600; i++) {
     int angle = (int)(36000000 + i * 10000);
@@ -507,6 +512,11 @@ int main()
 
   drive_motor_low_power(rest_elec_angle + 36000000);
   // TODO: Automatically calibrate minimum torque for low power drive
+
+  // End of calibration
+  TIM14->CCR1 = TIM16->CCR1 = 2500; TIM17->CCR1 = 4000;
+  while (HAL_GetTick() <= 10000) { }
+  TIM14->CCR1 = TIM16->CCR1 = TIM17->CCR1 = 0;
 
 #define LED_TIMER_1     TIM17
 #define LED_MAX_DUTY_1  5000
