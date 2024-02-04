@@ -430,6 +430,7 @@ int main()
   }
 
 #if TESTRUN
+  // TIM17->CCR1 = 10; HAL_Delay(500);
   while (1) {
     uint16_t mag_value = read_magenc();
     swv_printf("mag encoder value = %u\n", (unsigned)mag_value);
@@ -543,10 +544,11 @@ void SysTick_Handler()
 void TIM17_IRQHandler()
 {
   // HAL_TIM_IRQHandler(&tim17);
-  // Period elapsed?
+  // Period elapsed, and OC not triggered too fast (within a few cycles)?
   if (TIM17->SR & TIM_IT_UPDATE) {
     TIM17->SR &= ~TIM_IT_UPDATE;
-    LED_OUT_B_PORT->BSRR = (uint32_t)LED_OUT_B_PIN << 16;
+    if (!(TIM17->SR & TIM_FLAG_CC1))
+      LED_OUT_B_PORT->BSRR = (uint32_t)LED_OUT_B_PIN << 16;
   }
   // Output-compare delay elapsed?
   if (TIM17->SR & TIM_FLAG_CC1) {
