@@ -271,8 +271,8 @@ int main()
     .Instance = TIM3,
     .Init = {
       .Prescaler = 1 - 1,
-      // .CounterMode = TIM_COUNTERMODE_UP,
-      .CounterMode = TIM_COUNTERMODE_CENTERALIGNED1,
+      .CounterMode = TIM_COUNTERMODE_UP,
+      // .CounterMode = TIM_COUNTERMODE_CENTERALIGNED1,
       .Period = PWM_RESOLUTION - 1,
       .ClockDivision = TIM_CLOCKDIVISION_DIV1,
       .RepetitionCounter = 0,
@@ -508,7 +508,16 @@ int main()
   drive_motor_low_power(rest_elec_angle + 36000000);
   // TODO: Automatically calibrate minimum torque for low power drive
 
-#define LED_MAX_DUTY 5000
+#define LED_TIMER_1     TIM17
+#define LED_MAX_DUTY_1  5000
+#define LED_TIMER_2     TIM14
+#define LED_MAX_DUTY_2  0
+#if 0
+#define LED_TIMER_1     TIM14
+#define LED_MAX_DUTY_1  10000
+#define LED_TIMER_2     TIM16
+#define LED_MAX_DUTY_2  5000
+#endif
 
   while (1) {
     for (int i = 0; i < 5; i++) {
@@ -516,13 +525,15 @@ int main()
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(100);
     }
     TIM3->CCR1 = TIM3->CCR2 = TIM3->CCR3 = 0;
-    for (int i = 1800; i >= 0; i--) {
+    for (int i = 1800; i >= 0; i -= 2) {
       float x = i / 1800.f;
       x = (1 - (1 - x) * (1 - x) * (1 - x)) * 1800;
       drive_motor(36000000 + rest_elec_angle + x * 20000);
       for (int i = 0; i < 100; i++) asm volatile ("nop");
       x = x / 1800;
-      TIM17->CCR1 = (1 - (x < 0.25 ? cbrtf(x * 4) : 1)) * LED_MAX_DUTY;
+      uint32_t duty = (1 - (x < 0.25 ? cbrtf(x * 4) : 1)) * LED_MAX_DUTY_1;
+      LED_TIMER_1->CCR1 = duty;
+      LED_TIMER_2->CCR1 = duty * LED_MAX_DUTY_2 / LED_MAX_DUTY_1;
     }
     uint32_t wait_start_tick = HAL_GetTick();
     // 30 counts = 360 / 4096 * 30 deg = 2.64 deg
@@ -533,7 +544,7 @@ int main()
       // nop
     }
     uint32_t hit_tick = HAL_GetTick();
-    TIM17->CCR1 = LED_MAX_DUTY;
+    LED_TIMER_1->CCR1 = LED_MAX_DUTY_1;
     // Raise after the free fall
     HAL_Delay(3);
     int cur_pos = read_magenc();
@@ -549,18 +560,22 @@ int main()
       for (int i = 0; i < 1000; i++) asm volatile ("nop");
       // Fading LED
       uint32_t since_hit = HAL_GetTick() - hit_tick;
-      if (since_hit < 250) TIM17->CCR1 = LED_MAX_DUTY - since_hit * LED_MAX_DUTY / 250;
-      else TIM17->CCR1 = 0;
+      if (since_hit < 250) LED_TIMER_1->CCR1 = LED_MAX_DUTY_1 - since_hit * LED_MAX_DUTY_1 / 250;
+      else LED_TIMER_1->CCR1 = 0;
+      if (since_hit < 250) LED_TIMER_2->CCR1 = LED_MAX_DUTY_2 - since_hit * LED_MAX_DUTY_2 / 250;
+      else LED_TIMER_2->CCR1 = 0;
     }
     drive_motor_high_power(rest_elec_angle + 36000000);
     // HAL_Delay(300);
     uint32_t delay_start_tick = HAL_GetTick();
     while (HAL_GetTick() - delay_start_tick < 300) {
       uint32_t since_hit = HAL_GetTick() - hit_tick;
-      if (since_hit < 250) TIM17->CCR1 = LED_MAX_DUTY - since_hit * LED_MAX_DUTY / 250;
-      else TIM17->CCR1 = 0;
+      if (since_hit < 250) LED_TIMER_1->CCR1 = LED_MAX_DUTY_1 - since_hit * LED_MAX_DUTY_1 / 250;
+      else LED_TIMER_1->CCR1 = 0;
+      if (since_hit < 250) LED_TIMER_2->CCR1 = LED_MAX_DUTY_2 - since_hit * LED_MAX_DUTY_2 / 250;
+      else LED_TIMER_2->CCR1 = 0;
     }
-    TIM17->CCR1 = 0;
+    LED_TIMER_1->CCR1 = 0;
     drive_motor_low_power(rest_elec_angle + 36000000);
   }
 }
