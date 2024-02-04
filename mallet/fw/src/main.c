@@ -206,14 +206,14 @@ int main()
   HAL_TIM_PWM_ConfigChannel(&tim16, &tim16_ch1_oc_init, TIM_CHANNEL_1);
   HAL_TIMEx_PWMN_Start(&tim16, TIM_CHANNEL_1);
 
-/*
   // LED Blue, TIM17
   gpio_init.Pin = LED_OUT_B_PIN;
-  gpio_init.Mode = GPIO_MODE_AF_PP;
+  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
   gpio_init.Alternate = GPIO_AF2_TIM17;
   gpio_init.Pull = GPIO_NOPULL;
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(LED_OUT_B_PORT, &gpio_init);
+  HAL_GPIO_WritePin(LED_OUT_B_PORT, LED_OUT_B_PIN, 1);
   __HAL_RCC_TIM17_CLK_ENABLE();
   tim17 = (TIM_HandleTypeDef){
     .Instance = TIM17,
@@ -225,15 +225,11 @@ int main()
       .RepetitionCounter = 0,
     },
   };
-  HAL_TIM_PWM_Init(&tim17);
-  TIM_OC_InitTypeDef tim17_ch1_oc_init = {
-    .OCMode = TIM_OCMODE_PWM2,
-    .Pulse = 0, // to be filled
-    .OCNPolarity = TIM_OCNPOLARITY_HIGH,  // Output is TIM17_CH1N
-  };
-  HAL_TIM_PWM_ConfigChannel(&tim17, &tim17_ch1_oc_init, TIM_CHANNEL_1);
-  HAL_TIMEx_PWMN_Start(&tim17, TIM_CHANNEL_1);
-*/
+  HAL_TIM_OC_Init(&tim17);
+  HAL_TIM_OC_Start_IT(&tim17, TIM_CHANNEL_1);
+  HAL_TIM_Base_Start_IT(&tim17);
+  HAL_NVIC_SetPriority(TIM17_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(TIM17_IRQn);
 
   // Driver PWMs, TIM3
   gpio_init.Mode = GPIO_MODE_AF_PP;
@@ -320,7 +316,7 @@ int main()
   };
   HAL_I2C_Init(&i2c1);
 
-  HAL_NVIC_SetPriority(I2C1_IRQn, 1, 0);
+  HAL_NVIC_SetPriority(I2C1_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(I2C1_IRQn);
   HAL_I2C_EnableListen_IT(&i2c1);
 
@@ -537,6 +533,42 @@ void SysTick_Handler()
   //   HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, HAL_GetTick() % 1000 == 0);
 }
 
+// Issue: when OC pulse is too small, interrupts triggered by a period-elapse
+// might fall into `HAL_TIM_OC_DelayElapsedCallback` first before `HAL_TIM_PeriodElapsedCallback`,
+// creating a nearly-always-on PWM
+// Here we reverse the order
+// Macros `__HAL_TIM_GET_FLAG` and `__HAL_TIM_CLEAR_FLAG` are expanded
+// to avoid the `tim17.Instance` indirection
+
+void TIM17_IRQHandler()
+{
+  // HAL_TIM_IRQHandler(&tim17);
+  // Period elapsed?
+  if (TIM17->SR & TIM_IT_UPDATE) {
+    TIM17->SR &= ~TIM_IT_UPDATE;
+    LED_OUT_B_PORT->BSRR = (uint32_t)LED_OUT_B_PIN << 16;
+  }
+  // Output-compare delay elapsed?
+  if (TIM17->SR & TIM_FLAG_CC1) {
+    TIM17->SR &= ~TIM_FLAG_CC1;
+    LED_OUT_B_PORT->BSRR = LED_OUT_B_PIN;
+  }
+}
+
+/*
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *tim)
+{
+  // assert(tim == &tim17);
+  // HAL_GPIO_WritePin(LED_OUT_B_PORT, LED_OUT_B_PIN, TIM17->CCR1 == 0 ? 1 : 0);
+}
+
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *tim)
+{
+  // assert(tim == &tim17);
+  // HAL_GPIO_WritePin(LED_OUT_B_PORT, LED_OUT_B_PIN, 1);
+}
+*/
+
 static uint8_t i2c_rx_buf[2];
 
 void I2C1_IRQHandler()
@@ -547,33 +579,6 @@ void I2C1_IRQHandler()
     HAL_I2C_EV_IRQHandler(&i2c1);
   }
 }
-
-void NMI_Handler() { while (1) { } }
-void HardFault_Handler() { while (1) { } }
-void SVC_Handler() { while (1) { } }
-void PendSV_Handler() { while (1) { } }
-void WWDG_IRQHandler() { while (1) { } }
-void RTC_TAMP_IRQHandler() { while (1) { } }
-void FLASH_IRQHandler() { while (1) { } }
-void RCC_IRQHandler() { while (1) { } }
-void EXTI0_1_IRQHandler() { while (1) { } }
-void EXTI2_3_IRQHandler() { while (1) { } }
-void EXTI4_15_IRQHandler() { while (1) { } }
-void DMA1_Channel1_IRQHandler() { while (1) { } }
-void DMA1_Channel2_3_IRQHandler() { while (1) { } }
-void DMA1_Ch4_5_DMAMUX1_OVR_IRQHandler() { while (1) { } }
-void ADC1_IRQHandler() { while (1) { } }
-void TIM1_BRK_UP_TRG_COM_IRQHandler() { while (1) { } }
-void TIM1_CC_IRQHandler() { while (1) { } }
-void TIM3_IRQHandler() { while (1) { } }
-void TIM14_IRQHandler() { while (1) { } }
-void TIM16_IRQHandler() { while (1) { } }
-void TIM17_IRQHandler() { while (1) { } }
-void I2C2_IRQHandler() { while (1) { } }
-void SPI1_IRQHandler() { while (1) { } }
-void SPI2_IRQHandler() { while (1) { } }
-void USART1_IRQHandler() { while (1) { } }
-void USART2_IRQHandler() { while (1) { } }
 
 void HAL_I2C_AddrCallback(I2C_HandleTypeDef *i2c, uint8_t TransferDirection, uint16_t AddrMatchCode)
 {
@@ -608,3 +613,29 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *i2c)
     HAL_I2C_EnableListen_IT(i2c);
   }
 }
+
+void NMI_Handler() { while (1) { } }
+void HardFault_Handler() { while (1) { } }
+void SVC_Handler() { while (1) { } }
+void PendSV_Handler() { while (1) { } }
+void WWDG_IRQHandler() { while (1) { } }
+void RTC_TAMP_IRQHandler() { while (1) { } }
+void FLASH_IRQHandler() { while (1) { } }
+void RCC_IRQHandler() { while (1) { } }
+void EXTI0_1_IRQHandler() { while (1) { } }
+void EXTI2_3_IRQHandler() { while (1) { } }
+void EXTI4_15_IRQHandler() { while (1) { } }
+void DMA1_Channel1_IRQHandler() { while (1) { } }
+void DMA1_Channel2_3_IRQHandler() { while (1) { } }
+void DMA1_Ch4_5_DMAMUX1_OVR_IRQHandler() { while (1) { } }
+void ADC1_IRQHandler() { while (1) { } }
+void TIM1_BRK_UP_TRG_COM_IRQHandler() { while (1) { } }
+void TIM1_CC_IRQHandler() { while (1) { } }
+void TIM3_IRQHandler() { while (1) { } }
+void TIM14_IRQHandler() { while (1) { } }
+void TIM16_IRQHandler() { while (1) { } }
+void I2C2_IRQHandler() { while (1) { } }
+void SPI1_IRQHandler() { while (1) { } }
+void SPI2_IRQHandler() { while (1) { } }
+void USART1_IRQHandler() { while (1) { } }
+void USART2_IRQHandler() { while (1) { } }
