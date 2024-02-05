@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define KEY_NUM 2
+
 #define LED_IND_ACT_PORT  GPIOA
 #define LED_IND_ACT_PIN   GPIO_PIN_1
 
@@ -115,6 +117,8 @@ static inline void drive_motor_low_power(uint32_t angle)
   TIM3->CCR3 = sin_lookup_low_power[(angle / 50000 + 480) % 720];
 }
 
+bool slow_blink_ind_led = false;
+
 int main()
 {
   HAL_Init();
@@ -144,6 +148,10 @@ int main()
   RCC_OscInitTypeDef osc_init = { 0 };
   osc_init.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   osc_init.HSIState = RCC_HSI_ON;
+  /* static const int HSI_TRIM[3] = {
+    66, 64, 64
+  };
+  osc_init.HSICalibrationValue = HSI_TRIM[KEY_NUM - 1]; */
   osc_init.PLL.PLLState = RCC_PLL_ON;
   osc_init.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   osc_init.PLL.PLLM = RCC_PLLM_DIV2;
@@ -517,23 +525,121 @@ int main()
   TIM14->CCR1 = TIM16->CCR1 = 2500; TIM17->CCR1 = 4000;
   while (HAL_GetTick() <= 10000) { }
   TIM14->CCR1 = TIM16->CCR1 = TIM17->CCR1 = 0;
+  HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0);
+  // slow_blink_ind_led = true;
 
-#define LED_TIMER_1     TIM17
-#define LED_MAX_DUTY_1  5000
-#define LED_TIMER_2     TIM14
-#define LED_MAX_DUTY_2  0
-#if 0
-#define LED_TIMER_1     TIM14
-#define LED_MAX_DUTY_1  10000
-#define LED_TIMER_2     TIM16
-#define LED_MAX_DUTY_2  5000
-#endif
+  TIM_TypeDef *LED_TIMER_1, *LED_TIMER_2;
+  uint32_t LED_MAX_DUTY_1, LED_MAX_DUTY_2;
+
+  float beat_dur = 415.57;  // 416.67;
+  struct note {
+    float time;
+    int key, player;
+  } tune[] = {
+    // time, key, player
+    { 0 +  0, 1, 1},
+    { 1 +  0, 2, 1},
+    { 2 +  0, 1, 1},
+    { 3 +  0, 3, 1},
+    { 5 +  0, 1, 1},
+    { 6 +  0, 2, 1},
+    { 7 +  0, 1, 1},
+    // { 0 +  8, 1, 1},
+    { 1 +  8, 2, 1},
+    { 2 +  8, 1, 1},
+    { 3 +  8, 3, 1},
+    { 5 +  8, 1, 1},
+    { 6 +  8, 2, 1},
+    // { 7 +  8, 1, 1},
+    { 0 + 16, 1, 1},
+    { 1 + 16, 2, 1},
+    { 2 + 16, 1, 1},
+
+    { 4 + 16, 1, 1},
+    { 5 + 16, 2, 1},
+    { 0 + 22, 3, 1},
+    { 2 + 22, 3, 1},
+    { 4 + 22, 3, 1},
+    { 6 + 22, 2, 1},
+    {12 + 22, 1, 1},
+    {14 + 22, 1, 1},
+    {16 + 22, 1, 1},
+    {18 + 22, 3, 1},
+    { 0 + 46, 1, 1},
+    { 4 + 46, 1, 1},
+    { 6 + 46, 1, 1},
+    { 8 + 46, 2, 1},
+    {10 + 46, 3, 1},
+    {12 + 46, 3, 1},
+    {14 + 46, 2, 1},
+    {16 + 46, 1, 1},
+    {18 + 46, 2, 1},
+
+    {22 + 46, 1, 1},
+    {23 + 46, 2, 1},
+    { 0 + 70, 3, 1}, { 0 + 70, 1, 2},
+    { 2 + 70, 3, 1}, { 2 + 70, 1, 2},
+    { 4 + 70, 3, 1}, { 4 + 70, 1, 2},
+    { 6 + 70, 2, 1}, { 6 + 70, 1, 2},
+    {12 + 70, 1, 1},
+    {14 + 70, 2, 1},
+    {16 + 70, 3, 1},
+    {18 + 70, 3, 1}, {18 + 70, 1, 2},
+    {22 + 70, 2, 1}, {22 + 70, 3, 2},
+    { 0 + 94, 1, 1},
+    { 2 + 94, 2, 1},
+    { 4 + 94, 1, 1},
+    { 6 + 94, 3, 1}, { 6 + 94, 1, 2},
+    { 8 + 94, 2, 1},
+    {10 + 94 + 0.1f, 1, 1},
+    {12 + 94 + 0.5f, 1, 1},
+    {16 + 94 + 0.95f, 2, 2},
+    {18 + 94 + 1.2f, 1, 2},
+  };
+  int tune_len = sizeof tune / sizeof tune[0];
+
+  for (int i = 0; i < tune_len; i++)
+    tune[i].time = (int)(tune[i].time * beat_dur);
+
+  static int DELAY[] = {0, 0, 0};
+  static float SCALE[] = {0.99699, 0.9998, 0.99941};
+
+  int last_note_played = -1;
+  uint32_t tune_start = 10500 + DELAY[KEY_NUM - 1];
 
   while (1) {
-    for (int i = 0; i < 5; i++) {
+    /* for (int i = 0; i < 5; i++) {
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 1); HAL_Delay(100);
       HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0); HAL_Delay(100);
+    } */
+
+    // Find the next note
+    while (1) {
+      if (last_note_played == tune_len - 1) {
+        last_note_played = 0;
+        tune_start += 122 * beat_dur;
+      } else {
+        last_note_played += 1;
+      }
+      if (tune[last_note_played].key == KEY_NUM) break;
     }
+    int32_t delay_until = (tune_start + tune[last_note_played].time) * SCALE[KEY_NUM - 1];
+    while ((int32_t)HAL_GetTick() - delay_until < 0) {
+      bool on = fmodf(HAL_GetTick() / SCALE[KEY_NUM - 1] - tune_start, beat_dur) <= beat_dur * 0.1;
+      // HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, on);
+    }
+    HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, 0);
+
+    if (tune[last_note_played].player == 1) {
+      // Orange
+      LED_TIMER_1 = TIM14; LED_MAX_DUTY_1 = 10000;
+      LED_TIMER_2 = TIM16; LED_MAX_DUTY_2 = 2000;
+    } else {
+      // Blue
+      LED_TIMER_1 = TIM17; LED_MAX_DUTY_1 = 10000;
+      LED_TIMER_2 = TIM16; LED_MAX_DUTY_2 = 3600;
+    }
+
     TIM3->CCR1 = TIM3->CCR2 = TIM3->CCR3 = 0;
     for (int i = 1800; i >= 0; i -= 2) {
       float x = i / 1800.f;
@@ -595,8 +701,9 @@ void SysTick_Handler()
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
 
-  // if (HAL_GetTick() % 500 == 0)
-  //   HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, HAL_GetTick() % 1000 == 0);
+  if (slow_blink_ind_led)
+    if (HAL_GetTick() % 500 == 0)
+      HAL_GPIO_WritePin(LED_IND_ACT_PORT, LED_IND_ACT_PIN, HAL_GetTick() % 1000 == 0);
 }
 
 // Issue: when OC pulse is too small, interrupts triggered by a period-elapse

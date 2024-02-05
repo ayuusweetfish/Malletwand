@@ -1126,7 +1126,8 @@ int main()
 
     // Display colour for a player?
     const bool PLAYER_MODE = true;
-    const int PLAYER_COLOUR[3] = {0, 800, 2000};
+    // const int PLAYER_COLOUR[3] = {0, 800, 2000};
+    const int PLAYER_COLOUR[3] = {4000, 750, 0};
 
     static int colour = 0;
     static int colours[4][3] = {
