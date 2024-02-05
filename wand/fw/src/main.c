@@ -1126,8 +1126,10 @@ int main()
 
     // Display colour for a player?
     const bool PLAYER_MODE = true;
-    // const int PLAYER_COLOUR[3] = {0, 800, 2000};
+    // const int PLAYER_COLOUR[3] = {0, 3200, 8000};
+    // const float PLAYER_TIME_SCALE = 0.97965f;
     const int PLAYER_COLOUR[3] = {4000, 750, 0};
+    const float PLAYER_TIME_SCALE = 0.9796f;
 
     static int colour = 0;
     static int colours[4][3] = {
@@ -1142,9 +1144,9 @@ int main()
       && floorf(last_music_phase / M_PI) != floorf(music_phase / M_PI)
     ) {
       colour = (colour + 1) % (sizeof colours / sizeof colours[0]);
-      TIM17->CCR1 = colours[colour][0];
-      TIM16->CCR1 = colours[colour][1];
-      TIM14->CCR1 = colours[colour][2];
+      TIM17->CCR1 = colours[colour][0] * 8;
+      TIM16->CCR1 = colours[colour][1] * 8;
+      TIM14->CCR1 = colours[colour][2] * 8;
     }
     if (going_forward) last_music_phase = music_phase;
     /* if (going_forward) {
@@ -1153,6 +1155,9 @@ int main()
       TIM14->CCR1 = 300; TIM16->CCR1 = TIM17->CCR1 = 0;
     } */
 
+    static float start = -1;
+    static const float beat = 415.57f * 2 * PLAYER_TIME_SCALE;
+    if (start == -1) start = HAL_GetTick() - fmodf(HAL_GetTick(), beat);
     if (PLAYER_MODE && acc_ptr == 300) {
       float intensity = 0;
       // `last_music_phase` in [0, 2pi), fastest positions at integral multiples of pi
@@ -1161,7 +1166,9 @@ int main()
       intensity = intensity * intensity;
       intensity = intensity * intensity;
     */
-      float x = fmodf(last_music_phase, M_PI) / M_PI;
+      // float x = fmodf(last_music_phase, M_PI) / M_PI;
+      float x = ((HAL_GetTick() - start) / beat);
+      if (x >= 1) { x -= 1; start += beat; }
       if (x >= 0.96)
         intensity = (x - 0.96) * 10;
       if (x < 0.15)
