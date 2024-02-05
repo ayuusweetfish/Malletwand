@@ -1125,10 +1125,10 @@ int main()
     omega_i = (int)(ω * 1000000);
 
     // Display colour for a player?
-    const bool PLAYER_MODE = true;
+    const bool PLAYER_MODE = false;
     // const int PLAYER_COLOUR[3] = {0, 3200, 8000};
     // const float PLAYER_TIME_SCALE = 0.97965f;
-    const int PLAYER_COLOUR[3] = {4000, 750, 0};
+    const int PLAYER_COLOUR[3] = {12000, 2250, 0};
     const float PLAYER_TIME_SCALE = 0.9796f;
 
     static int colour = 0;
