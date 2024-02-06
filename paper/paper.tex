@@ -1,0 +1,84 @@
+% xelatex paper
+% xelatex paper && bibtex paper && xelatex paper && xelatex paper
+
+\documentclass{nime-alternate} % Uncomment when publishing final version
+
+% Uncomment only one of the ones below
+\usepackage{anonymize} 		   %Uncomment this line to publish
+% \usepackage[blind]{anonymize}%Uncomment this line for blind review
+
+\usepackage[utf8]{inputenc}
+
+\begin{document}
+
+% --- Author Metadata here ---
+\conferenceinfo{NIME'24,}{4--6 September, Utrecht, The Netherlands.}
+
+\title{Malletwand: the Pendulum as a Handheld Interface to Musical Timing}
+
+\label{key}
+\numberofauthors{4}
+\author{
+\alignauthor
+\anonymize{Lyu, S.} \\
+  \affaddr{\anonymize{Academy of Arts \& Design, Tsinghua University}}\\
+  \affaddr{\anonymize{Beijing, China}}\\
+  \email{\anonymize{claire@ayu.land}}
+\alignauthor
+\anonymize{Li, H.} \\
+  \affaddr{\anonymize{Academy of Arts \& Design, Tsinghua University}}\\
+  \affaddr{\anonymize{Beijing, China}}\\
+  \email{\anonymize{lihanxua22@mails.tsinghua.edu.cn}}
+\and
+\alignauthor
+\anonymize{Wang, R.} \\
+  \affaddr{\anonymize{Academy of Arts \& Design, Tsinghua University}}\\
+  \affaddr{\anonymize{Beijing, China}}\\
+  \email{\anonymize{wangrh22@mails.tsinghua.edu.cn}}
+\alignauthor
+\anonymize{Mi, H.}\titlenote{\anonymize{Corresponding author.}}\\
+  \affaddr{\anonymize{Academy of Arts \& Design, Tsinghua University}}\\
+  \affaddr{\anonymize{Beijing, China}}\\
+  \email{\anonymize{mhp@tsinghua.edu.cn}}
+}
+\date{6 February 2024}
+
+\maketitle
+
+\begin{abstract}
+We devise and implement an interface in the form of a handheld pendulum device for manipulating the timing of musical playback. The physical properties of the pendulum make this interaction scheme steady and intuitive, and particularly suitable as an introductory means of musical engagement for untrained participants. We build a self-playing glockenspiel around this interface to demonstrate how our design encourages musical exploration and social play. We conclude by discussing potential extrapolations and integrations of the design in mobile and hybrid scenarios.
+\end{abstract}
+\keywords{Musical interface, pendulums, tactility, pose estimation, HCI}
+
+\ccsdesc[500]{Applied computing~Sound and music computing}
+\ccsdesc[300]{Human-centered computing~Interaction devices}
+\ccsdesc[300]{Hardware~Sensor applications and deployments}
+\printccsdesc
+
+
+\section{Introduction}
+\cite{Brower:Cog}
+
+\section{Related work}
+
+\section{Design}
+
+\section{Implementation}
+
+\section{Discussion and Future Work}
+
+\section{Conclusion}
+
+\section{Acknowledgments}
+
+\bibliographystyle{abbrv}
+\bibliography{nime-references} 
+
+\appendix
+\section{Details of the Signal Processing Algorithms}
+\subsection{Calibration}
+\subsubsection{Accelerometer}
+\subsubsection{Magnetometer}
+\subsection{Movement Estimation}
+
+\end{document}
