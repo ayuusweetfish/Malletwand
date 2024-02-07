@@ -45,6 +45,13 @@
 
 \maketitle
 
+%\begin{figure*}[h!]
+%  \centering
+%  \includegraphics[width=0.8 \textwidth]{placeholder.png}
+%  \caption{The Malletwand controller with the prototype self-playing glockenspiel.}
+%  \label{fig:Banner}
+%\end{figure*}
+
 \begin{abstract}
 We devise and implement an interface in the form of a handheld pendulum device for manipulating the timing of musical playback. The physical properties of the pendulum make this interaction scheme steady and intuitive, and particularly suitable as an introductory means of musical engagement for untrained participants. We build a self-playing glockenspiel around this interface to demonstrate how our design encourages musical exploration and social play. We conclude by discussing potential extrapolations and integrations of the design in mobile and hybrid scenarios.
 \end{abstract}
@@ -73,17 +80,42 @@ The rest of the article is outlined as follows. We provide an overview of relate
 
 As we direct our design towards approachability for all levels of expertise, we look for intuitive universalities among human music, and directed our attention to the formation and perception of isochronal patterns based on the abundant argument that humans naturally tend to perceive time, and especially in the musical context, in cycles and patterns~\cite{Brower:Cog, Neisser_1976, Ravignani2016}. To paraphrase our forerunners, repeating cycles of time set the boundaries of our activities as well as form grounds on which we anticipate our sensory stimuli. Discussions went further to establish the metaphorical and cognitive interplay our sense of time with embodied motion~\cite{Johnson_Larson_2003, Johnson_2008}.
 
-Indeed, there have been a number of devices that manifest the link between periodic bodily movement and stable temporal patterns. Scrubbing is a standard technique for turntablists to manipulate the speed of sounds by rotating vinyl records. Hand-cranked musical boxes provide a more approachable way to drive the flow of music by one's own hands. The Swedish band Wintergatan went as far as to build an entire machine, the Marble Machine, that turns the revolution of the manual crank into the progression of a musical piece~\cite{Rundle_Woollaston-Webber_2017}.
+Indeed, there have been a number of devices that manifest the link between periodic bodily movement and stable temporal patterns. Scrubbing is a standard technique for turntablists to manipulate the speed of sounds by rotating vinyl records. Hand-cranked musical boxes provide a more approachable way to drive the flow of music by one's own hands; although the Swedish band Wintergatan went as far as to build an entire machine, the Marble Machine, that turns the revolution of the manual crank into the progression of a musical piece~\cite{Rundle_Woollaston-Webber_2017}.
 
 However, these devices share the common limitation that they require practice, or at least familarity with steady bodily movement, to prevent sounds from being distorted in the temporal domain. Laypeople tend to invoke unsteady musical time on such devices, rendering the music less understandable and aesthetically pleasing, while it remains unclear to them how they should refine their actions in the reasonable directions. Thus, they will not be able to get the most out of the tactile musical experience.
 
 From another perspective, we are delighted to see novel musical devices that employ pendular motion or handheld physical controllers. Kugelschwung~\cite{Kugelschwung} is a digital musical instrument that relies on a set of pendulums mounted on a tabletop frame supplying control signals for soundscapes. Le Bâton~\cite{LeBaton} maps the chaotic behaviour of the triple pendulum into unpredictably varying electronic sounds. Gyrotyre~\cite{Gyrotyre}, on the other hand (no pun intended), is a handheld controller that maps oscillating signals from a gyroscope on a precessing wheel to various musical applications.
 
-Our design adds to this ensemble a missing piece: a lightweight handheld controller that can be enjoyable and meaningful regardless of the participant's prior musical experience.
+Still, these interfaces and instruments take larger physical forms and mainly aim at stage performances and/or dedicated experimental production setups. Our design adds to this ensemble a missing piece: a lightweight handheld controller interface that can be enjoyable and meaningful regardless of the participant's prior musical experience.
 
 \section{The ``Wand''}
 
+\subsection{Design}
+We first present the details of the handheld controller interface. It takes the form of a handle with a hanging bob (ball) that can freely swing and spin around, forming a pendulum. The participant swings the pendulum at their desired frequency while the bob's quasi-periodic motion is mapped to continuous musical time such that each fastest-moving point in a period corresponds to the start of a beat. (This point is usually perceived to be the ``central'' or the ``lowest'' point in simple pendulums, but since our pendulum has an extra degree of freedom, i.e., is a spherical pendulum, this appointment needs to be extrapolated.) Such generated timing signals are transmitted to an actuator (instrument) that plays a predetermined piece of music according to the manipulated flow of musical time.
+
+Such controllers can 
+
+\subsection{Construction}
+We design customised electronics for each of the parts -- the handle contains a battery, a vibration motor for haptic feedback, a radio transceiver, a microcontroller, and various peripheral components; the bob contains MEMS chips that form a 9-axis IMU (an accelerometer, a gyroscope, and a geomagnetometer). The complete structure is illustrated in figure~\ref{fig:WandConstruction}.
+
+\begin{figure*}[htbp]
+  \centering
+  \includegraphics[width=1\textwidth]{placeholder.png}
+  \caption{(a) An illustration of the controller being operated by a participant. (b) A photo of the circuit board. (c) Block diagram.}
+  \label{fig:WandConstruction}
+\end{figure*}
+
+We cut the board at the thin connection (in figure~\ref{fig:WandConstruction}a) and connect the parts with thin wires (8 strands of 32 AWG). The part for the handle is glued inside a 3D-printed casing with the wires hanging down to the bob. We add fishing wires to strengthen the connection and prevent the electric wires from excessive tension and fatigue.
+
+\subsection{Signal processing}
+
 \section{The ``Mallet''}
+
+\subsection{Design}
+
+\subsection{Construction}
+
+\subsection{Performance}
 
 \section{Discussion and Future Work}
 
