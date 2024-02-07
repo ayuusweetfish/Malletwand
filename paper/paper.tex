@@ -120,10 +120,10 @@ After assembly, the orientation of the circuit board inside the bob should be co
 The calibration is triggered by a wireless radio signal. The operator is then expected to hold the handle and let the bob stay stationary for a short while. Signals from the accelerometer are continuously monitored until they reach a sufficiently low deviation throughout a fixed time window of 3 seconds. This yields an axis vector that acts as the reference for future motion estimation from sensor readings which is saved in the persistent flash storage of the microcontroller.
 
 \subsubsection{Magnetometer calibration}
-As our algorithm relies on the geomagnetometer to improve accuracy of pose estimation, the distortion of the ambient magnetic field should also be compensated. Since indoor environments contain prominent and variable magnetic interference, this calibration is done online during operation. This works by continuously collecting the readings of the magnetometer and finding an ellipsoid fit that tries to distort the collected data in the form of 3D vectors onto a unit sphere. We employ the adjusted least squares estimator introduced by \cite{Markovsky_2004_ALS} for the ellipsoid fitting algorithm.
+As our algorithm relies on the geomagnetometer to improve accuracy of pose estimation, the distortion of the ambient magnetic field should also be compensated. Since indoor environments contain prominent and variable magnetic interference, this calibration is done online during operation. This works by continuously collecting the readings of the magnetometer and finding an ellipsoid fit that tries to distort the collected data in the form of 3D vectors onto a unit sphere. We employ the adjusted least squares estimator introduced by \cite{Markovsky_2004_ALS} with complementary steps by \cite{Renaudin2010}.
 
 \subsubsection{Motion signal processing}
-Our IMU produces readings at a sampling rate of 100 Hz, and the filtering algorithms run at the same rate. At each time step, we first estimate the facing of the bob through a complementary filter combining signals from the gyroscope and the magnetometer. The result is turned into a rotational transform that cancels out the bob's rotation around its own axis. Sensor readings adjusted by this transform are then fed into an extended Kalman filter (EKF) that estimates the trajectory of the bob in 3D space, and more importantly, its current phase within the period of motion. This is the value that gets interpreted as the driving signal of musical time, and is transmitted to the actuator.
+Our IMU produces readings at a sampling rate of 100 Hz, and the filtering algorithms run at the same rate. At each time step, we first estimate the facing of the bob through a complementary filter, inspired by~\cite{Min_Complementary}, combining signals from the gyroscope and the magnetometer. The result is turned into a rotational transform that cancels out the bob's rotation around its own axis. Sensor readings adjusted by this transform are then fed into an extended Kalman filter (EKF) that estimates the trajectory of the bob in 3D space, and more importantly, its current phase within the period of motion. This is the value that gets interpreted as the driving signal of musical time, and is transmitted to the actuator.
 
 Also transmitted is a confidence indicator, which is the Frobenius norm of the estimation covariance matrix in the EKF. This value allows both the controller and the actuator to avoid muddled time progression when the motion is not stably periodic, e.g., during the first few seconds since the beginning of interaction.
 
@@ -196,9 +196,43 @@ Anonymised.
 \subsection{Calibration}
 \subsubsection{Orientation}
 \subsubsection{Magnetometer}
+This task can be formulated as follows: given a set of 3-dimensional vectors $\mathbf{u}_{1 \dots n}$, find an affine transform $(\mathbf{Q}, \mathbf{o})$ such that the set of $\{\mathbf{u}'_i \mathbin{\mathop{|}} \mathbf{u}'_i = \mathbf{Q} \mathbf{u}_i + \mathbf{o}\}$ best fits onto a unit sphere.
+
+We follow the method of \cite{Renaudin2010}. Employing the ALS estimator in \cite{Markovsky_2004_ALS}, we find a fit $(\mathbf{A}, \mathbf{b}, d)$ to the set of equations
+\begin{equation}\label{eqn:ellipsoid1}
+\mathbf{u}_i^\mathsf{T} \mathbf{A} \mathbf{u}_i + \mathbf{b}^\mathsf{T} \mathbf{u}_i + d = 0\text{,}
+\end{equation}
+and then calculate an inverse transform that converts this ellipsoid back to the unit sphere.
+
+If we rewrite (\ref{eqn:ellipsoid1}) as
+\begin{equation}\label{eqn:ellipsoid2}
+(\mathbf{u}_i - \mathbf{c})^\mathsf{T} \ \mathbf{R} \ (\mathbf{u}_i - \mathbf{c}) = 1\text{,}
+\end{equation}
+the centre is then derived from the expansion of (\ref{eqn:ellipsoid2}) as $\mathbf{c} = -\frac 1 2 \mathbf{A}^{-1} \mathbf{b}$.
+
+Also can be derived is $\mathbf{R} = \frac {1}{\mathbf{c}^\mathsf{T} \mathbf{A} \mathbf{c} - d} \mathbf{A}$. To find $\mathbf{Q}$, we need to find the matrix square root of $\mathbf{R}$, since (\ref{eqn:ellipsoid2}) can be rewritten as
+\begin{equation}\label{eqn:ellipsoid3}
+\begin{aligned}
+(\mathbf{Q} \ (\mathbf{u}_i - \mathbf{c}))^\mathsf{T} \ (\mathbf{Q} \ (\mathbf{u}_i - \mathbf{c})) & \\
+(\mathbf{u}_i - \mathbf{c})^\mathsf{T} \ \mathbf{Q}^\mathsf{T} \ \mathbf{Q} \ (\mathbf{u}_i - \mathbf{c}) &= 1\text{,}
+\end{aligned}
+\end{equation}
+and $\mathbf{Q}$ is supposed to be symmetric.
+
+Since the ALS estimator only requires an accumulated matrix $\Psi$ and not the individual $\mathbf{u}_i$, we are able to carry out the calculation online in constant rather than linear space.
 
 \subsection{Estimation}
 \subsubsection{Facing}
+Our complementary filter design follows that in~\cite{Min_Complementary}. This filter balances between a proportional signal $\theta$ and a derivative signal $\dot\theta$. Here we treat the orientation as the value being estimated. The calibrated magnetometer provides the $\theta$ signal, while the calibrated gyroscope provides $\dot\theta$. We manually and empirically tune the quality factor to be $1 \mathbin{\mathop{/}} \sqrt{2}$ and the corner frequency to be $24\ \text{rad/s} = 3.82\ \text{Hz}$. A different value might be needed if the models of sensors change.
+
 \subsubsection{Motion}
+In the extended Kalman filter we formulate the state vector as $\mathbf{x} = \begin{bmatrix} \omega & A & \theta & B & \phi \end{bmatrix}^\mathsf{T}$, where the observation $\mathbf{z} = \begin{bmatrix} A \cos \theta & B \cos (\theta + \phi) \end{bmatrix}^\mathsf{T}$ is the adjusted gyroscope readings projected onto the $xy$ plane. Varying $\theta$ over $[0, 2\pi)$ traces out an elliptic trajectory of this point and $\theta$ is the current phase within the period. $\omega$ is the rate of increment of $\theta$.
+
+The process noise covariance matrix $\mathbf{Q}$ is set to be a diagonal matrix with the first entry prominently larger than the others, since $\omega$ is actively changed by the participant. If $A, \theta, B, \phi$ are assigned large process noise variances, the filter may frequently get stuck in a local optimum where all parameters oscillate, altogether stopping the steady progress of phase.
+
+After the estimation of $A, \theta, B, \phi$ are obtained, we find the tilt angle of the major axis by $\delta = -\frac 1 2 \mathrm{arctan} \frac {A^2 + B^2 \cos 2\phi} {-B^2 \sin 2\phi}$, and calculate the difference between $\theta$ and $\delta + \frac 1 4 \pi$ to align the zero phase to the fastest-moving point. For details, please refer to the source code.
+
+\section{Source Repository}
+All of our design files (printed circuit board assemblies, mechanical models) and source code are published at \newline \anonymize{\texttt{https://github.com/ayuusweetfish/Malletwand}}.
 
 \end{document}
