@@ -58,22 +58,32 @@ We devise and implement an interface in the form of a handheld pendulum device f
 
 \section{Introduction}
 
-Throughout our experience, we have always been able to capture the instinctive desire to actively and earnestly engage in music from those that have not had the advantage to experience music full-scale.
+Throughout our experience, we have always been able to capture the instinctive desire to actively and earnestly engage in music from those that have not had the advantage to experience music full-scale (pun intended).
 In our lasting endeavour to expand the reach of musically-meaningful interactive experiences, we set out on a search of an interaction scheme that is easy to understand and operate without musical expertise, while navigating the participant in sensible directions to manipulate the sounds to their own imagination, deepening their connection with the musical elements they have been presented with.
 
-We settled on the periodic motion of the pendulum. The stability and self-recovering property of the pendulum makes for a reliable framework of periodic musical time, i.e., tempo, or beats.
+We settled on the periodic motion of the pendulum. The stability and self-recovering property of pendular motion makes for a reliable framework of periodic musical time, i.e., tempo, or beats.
 
-We devise and implement an interface in the form of a handheld pendulum device. By swinging the pendulum, the participant is able to manipulate musical time, while the physical properties slightly guides them through its tendency to keep a stable period and fall back to a predetermined one.
+We devise and implement a controller interface, which we title the Malletwand, in the form of a handheld pendulum device. By swinging the pendulum, the participant is able to manipulate the speed of musical time, while the kinematic properties gently guides them through its tendency to keep a stable period, preventing excessive deviance from a steady tempo.
+
+We imagine that this interface be paired with various types of musical actuators. For this report, we build a self-playing glockenspiel (the ``mallet'' in the name) operated by up to two such controllers in order to demonstrate how our design encourages musical exploration and social play.
+
+The rest of the article is outlined as follows. We provide an overview of related work in various relevant fields before presenting the details of our design and implementation of the controller interface and the self-playing instrument. We go on to discuss potential extrapolations and integrations of the design in mobile and hybrid scenarios, some of which we plan as our future work. Algorithmic details are laid out in the appendix.
 
 \section{Related work}
 
-As we direct our design towards approachability for all levels of expertise, we look for intuitive universalities among human music, and selected to focus on the formation and perception of patterned time based on the abundant argument that humans naturally tend to perceive time, and especially in the musical context, in cycles~\cite{Brower:Cog, Neisser_1976, Ravignani2016}. To paraphrase our forerunners, repeating cycles of time set the boundaries of our activities as well as form grounds on which we anticipate our sensory stimuli.
+As we direct our design towards approachability for all levels of expertise, we look for intuitive universalities among human music, and directed our attention to the formation and perception of isochronal patterns based on the abundant argument that humans naturally tend to perceive time, and especially in the musical context, in cycles and patterns~\cite{Brower:Cog, Neisser_1976, Ravignani2016}. To paraphrase our forerunners, repeating cycles of time set the boundaries of our activities as well as form grounds on which we anticipate our sensory stimuli. Discussions went further to establish the metaphorical and cognitive interplay our sense of time with embodied motion~\cite{Johnson_Larson_2003, Johnson_2008}.
 
-Indeed, there have been a number of devices that establish the link between periodic motion and stable temporal patterns.
+Indeed, there have been a number of devices that manifest the link between periodic bodily movement and stable temporal patterns. Scrubbing is a standard technique for turntablists to manipulate the speed of sounds by rotating vinyl records. Hand-cranked musical boxes provide a more approachable way to drive the flow of music by one's own hands. The Swedish band Wintergatan went as far as to build an entire machine, the Marble Machine, that turns the revolution of the manual crank into the progression of a musical piece~\cite{Rundle_Woollaston-Webber_2017}.
 
-\section{Design}
+However, these devices share the common limitation that they require practice, or at least familarity with steady bodily movement, to prevent sounds from being distorted in the temporal domain. Laypeople tend to invoke unsteady musical time on such devices, rendering the music less understandable and aesthetically pleasing, while it remains unclear to them how they should refine their actions in the reasonable directions. Thus, they will not be able to get the most out of the tactile musical experience.
 
-\section{Implementation}
+From another perspective, we are delighted to see novel musical devices that employ pendular motion or handheld physical controllers. Kugelschwung~\cite{Kugelschwung} is a digital musical instrument that relies on a set of pendulums mounted on a tabletop frame supplying control signals for soundscapes. Le Bâton~\cite{LeBaton} maps the chaotic behaviour of the triple pendulum into unpredictably varying electronic sounds. Gyrotyre~\cite{Gyrotyre}, on the other hand (no pun intended), is a handheld controller that maps oscillating signals from a gyroscope on a precessing wheel to various musical applications.
+
+Our design adds to this ensemble a missing piece: a lightweight handheld controller that can be enjoyable and meaningful regardless of the participant's prior musical experience.
+
+\section{The ``Wand''}
+
+\section{The ``Mallet''}
 
 \section{Discussion and Future Work}
 
