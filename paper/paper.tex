@@ -9,6 +9,8 @@
 
 \usepackage[utf8]{inputenc}
 
+\usepackage{stfloats}
+
 \begin{document}
 
 % --- Author Metadata here ---
@@ -45,12 +47,12 @@
 
 \maketitle
 
-%\begin{figure*}[h!]
-%  \centering
-%  \includegraphics[width=0.8 \textwidth]{placeholder.png}
-%  \caption{The Malletwand controller with the prototype self-playing glockenspiel.}
-%  \label{fig:Banner}
-%\end{figure*}
+\begin{figure*}[ptb]
+  \centering
+  \includegraphics[width=1\textwidth]{placeholder.png}
+  \caption{The Malletwand controller with the prototype self-playing glockenspiel.}
+  \label{fig:Banner}
+\end{figure*}
 
 \begin{abstract}
 We devise and implement an interface in the form of a handheld pendulum device for manipulating the timing of musical playback. The physical properties of the pendulum make this interaction scheme steady and intuitive, and particularly suitable as an introductory means of musical engagement for untrained participants. We build a self-playing glockenspiel around this interface to demonstrate how our design encourages musical exploration and social play. We conclude by discussing potential extrapolations and integrations of the design in mobile and hybrid scenarios.
@@ -90,47 +92,113 @@ Still, these interfaces and instruments take larger physical forms and mainly ai
 
 \section{The ``Wand''}
 
-\subsection{Design}
-We first present the details of the handheld controller interface. It takes the form of a handle with a hanging bob (ball) that can freely swing and spin around, forming a pendulum. The participant swings the pendulum at their desired frequency while the bob's quasi-periodic motion is mapped to continuous musical time such that each fastest-moving point in a period corresponds to the start of a beat. (This point is usually perceived to be the ``central'' or the ``lowest'' point in simple pendulums, but since our pendulum has an extra degree of freedom, i.e., is a spherical pendulum, this appointment needs to be extrapolated.) Such generated timing signals are transmitted to an actuator (instrument) that plays a predetermined piece of music according to the manipulated flow of musical time.
+\subsection{Design Overview}
+We first present the details of the handheld controller interface. It takes the form of a handle with a hanging bob (ball) that can freely swing and spin around, forming a pendulum. The participant swings the pendulum at their desired frequency while the bob's quasi-periodic motion is mapped to continuous musical time such that each fastest-moving point in a period corresponds to the start of a beat. (This point is usually perceived to be the ``central'' or the ``lowest'' point in simple pendulums, but since our pendulum has an extra degree of freedom, i.e., is a spherical pendulum, this appointment needs to be extrapolated.) Such generated timing signals are wirelessly transmitted to an actuator (instrument) that plays a piece of music according to the manipulated flow of musical time.
 
-Such controllers can 
+We add a few simple features to enrich the feedback and interaction. Haptic feedback at beat onsets is provided by a vibration motor. A tri-colour LED is placed inside the bob that is flexible in its responses to interaction, e.g., it may indicate the changing beats by alternating tints or identify the voice by colour coding in the case of multiplayer interaction. Furthermore, the controller is intended to be normally at rest, so it is equipped with a vibration switch that wakes up the entire circuit from sleep when the device is picked up by a participant. A single-pole, single-throw (SPST) switch allows the overall power to be turned off during times without participants.
 
 \subsection{Construction}
-We design customised electronics for each of the parts -- the handle contains a battery, a vibration motor for haptic feedback, a radio transceiver, a microcontroller, and various peripheral components; the bob contains MEMS chips that form a 9-axis IMU (an accelerometer, a gyroscope, and a geomagnetometer). The complete structure is illustrated in figure~\ref{fig:WandConstruction}.
+We design customised electronics for all of our devices. The handle contains a lithium polymer (Li-Po) battery, a microcontroller, a radio transceiver, a vibration motor, and various supporting components; the bob contains MEMS chips that form a 9-axis IMU (an accelerometer, a gyroscope, and a geomagnetometer). The complete structure is illustrated in Figure~\ref{fig:WandConstruction}.
 
-\begin{figure*}[htbp]
+\begin{figure*}[h!]
   \centering
   \includegraphics[width=1\textwidth]{placeholder.png}
-  \caption{(a) An illustration of the controller being operated by a participant. (b) A photo of the circuit board. (c) Block diagram.}
+  \caption{(a) Illustration of the controller being operated by a participant. (b) Photo of the circuit board. (c) Block diagram of the electronic components involved.}
   \label{fig:WandConstruction}
 \end{figure*}
 
-We cut the board at the thin connection (in figure~\ref{fig:WandConstruction}a) and connect the parts with thin wires (8 strands of 32 AWG). The part for the handle is glued inside a 3D-printed casing with the wires hanging down to the bob. We add fishing wires to strengthen the connection and prevent the electric wires from excessive tension and fatigue.
+The board is fabricated as one, in order to ease soldering and debugging as we build the prototype. After testing is complete, we cut the board at the thin connection (in Figure~\ref{fig:WandConstruction}b) and connect the two parts with thin wires (8 strands of 32 AWG). The handle part is glued inside a 3D-printed casing with the wires hanging down onto the bob part, which is inserted onto a holder made of polymeric foam glued in a translucent plastic sphere filled with down cotton. We add fishing wires to strengthen the connection and prevent the electric wires from excessive tension and fatigue.
 
-\subsection{Signal processing}
+\subsection{Estimation Algorithm}
+All processing are done on the microcontroller device. The microcontroller we used, STM32G031, is an Arm Cortex-M0+ processor without a dedicated FPU, but our complete algorithm runs well within its 64 MHz system clock.
+
+The algorithm requires an initial orientation calibration before employing an ensemble of filters to process the sensor signals. The calibration step is run once after assembly and before finishing deployment. We introduce these two parts respectively. To keep our description concise, we defer all of the mathematical details to Appendix~\ref{appendix:signal-processing}.
+
+\subsubsection{Orientation calibration}
+After assembly, the orientation of the circuit board inside the bob should be compensated for.
+
+The calibration is triggered by a wireless radio signal. The operator is then expected to hold the handle and let the bob stay stationary for a short while. Signals from the accelerometer are continuously monitored until they reach a sufficiently low deviation throughout a fixed time window of 3 seconds. This yields an axis vector that acts as the reference for future motion estimation from sensor readings which is saved in the persistent flash storage of the microcontroller.
+
+\subsubsection{Magnetometer calibration}
+As our algorithm relies on the geomagnetometer to improve accuracy of pose estimation, the distortion of the ambient magnetic field should also be compensated. Since indoor environments contain prominent and variable magnetic interference, this calibration is done online during operation. This works by continuously collecting the readings of the magnetometer and finding an ellipsoid fit that tries to distort the collected data in the form of 3D vectors onto a unit sphere. We employ the adjusted least squares estimator introduced by \cite{Markovsky_2004_ALS} for the ellipsoid fitting algorithm.
+
+\subsubsection{Motion signal processing}
+Our IMU produces readings at a sampling rate of 100 Hz, and the filtering algorithms run at the same rate. At each time step, we first estimate the facing of the bob through a complementary filter combining signals from the gyroscope and the magnetometer. The result is turned into a rotational transform that cancels out the bob's rotation around its own axis. Sensor readings adjusted by this transform are then fed into an extended Kalman filter (EKF) that estimates the trajectory of the bob in 3D space, and more importantly, its current phase within the period of motion. This is the value that gets interpreted as the driving signal of musical time, and is transmitted to the actuator.
+
+Also transmitted is a confidence indicator, which is the Frobenius norm of the estimation covariance matrix in the EKF. This value allows both the controller and the actuator to avoid muddled time progression when the motion is not stably periodic, e.g., during the first few seconds since the beginning of interaction.
 
 \section{The ``Mallet''}
 
-\subsection{Design}
+\subsection{Design Overview}
+Our demonstrative self-playing instrument is a 21-key glockenspiel that spans a register of 2.3 octaves by the diatonic major scale with the raised fourth and the flat sixth added.
+
+The instrument is accompanied by two ``wand'' controllers and can operate in both individual and co-operative mode. Signals received from the controllers control the passing of musical time in a predetermined musical piece, similar to a musical box. Co-operative mode is entered by two controllers being operated simultaneously, where each controller corresponds to one voice (part) indicated by colours of the lights. The music only progresses when the motion of the two are roughly in synchronisation.
 
 \subsection{Construction}
+\subsubsection{Keys}
+The keys are laser-cut from aluminum of 5 mm thickness. We chose aluminum instead of an alloy since we would like a mellower timbre. Prior to production, we ordered a small number of samples from the fabricator to determine the acoustic characteristics of the material, i.e., timbre and the coefficient for resonant frequency. The resonant frequency of a vibrating metal bar is inversely proportional to the square root of its length. We thus calculate the desired lengths according to equal-temperament tuing, create the blueprints programmatically in OpenSCAD and send them for fabrication.
+
+\subsubsection{Electronics}
+The electronics of the instrument comprise a main unit and 21 sub-units~\footnote{We have not finished assembling all the keys as of the time of submission of this manuscript; we hence temporarily use our 3-key prototype for demonstrations.}, one for each key. The main unit is responsible for the communication with the controller(s) as well as the delivery of power and control signals to the sub-units. Each sub-unit has a small BLDC motor that holds a yarn mallet, fixed onto a circuit board with a magnetic encoder, a tri-colour LED, and a microcontroller. The entire device is powered by a single DC supply between 9 V and 25 V into the main unit. The complete structure is illustrated in Figure~\ref{fig:MalletConstruction}.
+
+\begin{figure*}[h!]
+  \centering
+  \includegraphics[width=1\textwidth]{placeholder.png}
+  \caption{(a) Overall photo of the instrument. (b) Close-up of a single sub-unit. (c) Block diagram of the electronic components involved.}
+  \label{fig:MalletConstruction}
+\end{figure*}
+
+We choose I\textsuperscript{2}C as the communication protocol, because it needs only two electrical signals for multiple parallel devices. We use an I\textsuperscript{2}C accelerator chip on the main unit to get around rise time issues due to increased bus capacitance of long transmission wires.
+
+\subsubsection{Mechanical and miscellaneous}
+We fix all units (both the main one and sub-units) onto polymeric foam which is glued onto a thin wooden board that serves as the base. Slots created on the foam hold the units as well as the electrical lines. We glue an extra frame made of wooden sticks around the foam to improve stability.
+
+The mechanical parts for the fixation of motors and mallets are all 3D-printed with PLA. Yarn on the mallets are manually wrapped around a wooden core and slightly melted with a lighter in order to tighten it.
 
 \subsection{Performance}
+During operation, the glockenspiel plays a tune as the pendulum(s) swing(s) back and forth. The tempo of the music adjusts to the period(s) of pendular motion. Haptic feedback and lights on both the bob and the keys add tactility and visualisation to the embodied musical experience. Figure~\ref{fig:Banner} is a photo of the instrument in action.
 
-\section{Discussion and Future Work}
+We attach a demonstration video with this report. Please refer to it.
+
+\section{Discussion}
+
+\subsection{The Experience of Malletwand}
+Our design accomplished our initial goals. The algorithms yield a reliable estimation of motion, successfully running the glockenspiel through a tune steadily with little external intervention on the pendulum, while being able to respond reasonably fast to changes in motion (within 1\textasciitilde{}2 swings). We enjoyed our own work.
+
+Through our pilot study, we confirmed that the pendulum-based interface is appreciated for its accuracy and ease of use. First-time users might not instantly figure out how to reliably manipulate the speed (period) of the pendulum, but were able to do so with their own exploration or with a hint. Since participants were able to quickly grasp the control and the mapping logic, musical exploration was instantly opened up to them. Participants tended to experiment with extremes before resorting to a steady tempo, trying gentler articulations, and were generally successful in their pursuit of musical expression.
+
+Social play is encouraged through the attempts to synchronise between the duo. This resembles the experience of musicians in ensembles, orchestras, or bands, and is appreciated by such practitioners. However, we notice that this is a rare and precious chance for participants with less musical experiences, and we hope to bring such meaningful and joyful activities to their reach through our design. We are still yet to conduct more extensive studies with such participants.
+
+One major shortcoming of the co-operative mode is the difficulty to synchronise the phases between the duo, due to interia preventing quick changes in speed, even more so regarding phase and position. This has the benefit of extending conversations between participants, but the less experienced of them might not figure out effective ways quickly and intuitively. In this regard, we are considering improving on the co-operative play mode, either by revamping the interaction rules or by extra hints in the form of synchronised haptic feedback or textual hints.
+
+\subsection{Extrapolations and Future Work}
+As we have written in the Introduction section, we imagine that this interface is not limited to our glockenspiel instrument. Any device that plays music can employ a pendulum interface to invite participants into musical time. Hybrid formats, including projections and mappings, or musical devices remotely incited beyond kilometers, opens doors to tactility in a hybrid world.
+
+Other musical features, or even other temporal formats, or even spatial expositions, may be involved as well. What about an installation that gives procedurally generated sounds? What about a film? A dance? A video game where cats chase the wand? A kaleidoscope? A planetarium?
+
+The estimation algorithms in the pendulum enables it to act as a standalone sensor, adding to the toolkit of digital artistic expression. What about an electronic mimicry of a windbell? A big hanging simulated telescope? A sparkling earring?
+
+Another possible extrapolation lies in the mobile scenario. The sensors we used are standard in today's smartphones, and relevant APIs are readily available on modern web browsers. Thus, with the processing algorithms ported to JavaScript, websites will be able to create novel interactive experiences without special equipment, simply by asking the visitor to put their phone in a holder, attach a string, and swing it to their liking. What about such a musical box? We leave all these for the reader as exercises while we try our hands on a few.
 
 \section{Conclusion}
+You have only 200 words remaining \char`\^ \char`\^
 
 \section{Acknowledgments}
+Anonymised.
 
 \bibliographystyle{abbrv}
 \bibliography{nime-references} 
 
 \appendix
 \section{Details of the Signal Processing Algorithms}
+\label{appendix:signal-processing}
+
 \subsection{Calibration}
-\subsubsection{Accelerometer}
+\subsubsection{Orientation}
 \subsubsection{Magnetometer}
-\subsection{Movement Estimation}
+
+\subsection{Estimation}
+\subsubsection{Facing}
+\subsubsection{Motion}
 
 \end{document}
