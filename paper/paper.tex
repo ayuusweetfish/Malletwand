@@ -170,7 +170,7 @@ Through our pilot study, we confirmed that the pendulum-based interface is appre
 
 Social play is encouraged through the attempts to synchronise between the duo. This resembles the experience of musicians in ensembles, orchestras, or bands, and is appreciated by such practitioners. However, we notice that this is a rare and precious chance for participants with less musical experiences, and we hope to bring such meaningful and joyful activities to their reach through our design. We are still yet to conduct more extensive studies with such participants.
 
-One major shortcoming of the co-operative mode is the difficulty to synchronise the phases between the duo, due to interia preventing quick changes in speed, even more so regarding phase and position. This has the benefit of extending conversations between participants, but the less experienced of them might not figure out effective ways quickly and intuitively. In this regard, we are considering improving on the co-operative play mode, either by revamping the interaction rules or by extra hints in the form of synchronised haptic feedback or textual hints.
+One major shortcoming of the co-operative mode is the difficulty to synchronise the phases between the duo, due to inertia preventing quick changes in speed, even more so regarding phase and position. This has the benefit of extending conversations between participants, but the less experienced of them might not figure out effective ways quickly and intuitively. In this regard, we are considering improving on the co-operative play mode, either by revamping the interaction rules or by extra hints in the form of synchronised haptic feedback or textual hints.
 
 \subsection{Extrapolations and Future Work}
 As we have written in the Introduction section, we imagine that this interface not be limited to our glockenspiel instrument. Any device that plays music can employ a pendulum interface to invite participants into musical time. Hybrid formats, including projections and mappings, or musical devices remotely incited beyond kilometers, opens doors to tactility in a hybrid world.
@@ -240,7 +240,15 @@ We fix the pole quality factor as $Q_\mathrm{P} = 1 \mathbin{\mathop{/}} \sqrt{2
 
 \subsubsection{Motion}
 \label{appendix:est-motion}
-In the extended Kalman filter we formulate the state vector as $\mathbf{x} = \begin{bmatrix} \omega & A & \theta & B & \phi \end{bmatrix}^\mathsf{T}$, where the observation $\mathbf{z} = \begin{bmatrix} A \cos \theta & B \cos (\theta + \phi) \end{bmatrix}^\mathsf{T}$ is the adjusted gyroscope readings projected onto the $xy$ plane. Varying $\theta$ over $[0, 2\pi)$ traces out an elliptic trajectory of this point and $\theta$ is the current phase within the period. $\omega$ is the rate of increment of $\theta$.
+In the extended Kalman filter we formulate the state vector as $\mathbf{x} = \begin{bmatrix} \omega & A & \theta & B & \phi \end{bmatrix}^\mathsf{T}$, where the observation $\mathbf{z} = \begin{bmatrix} A \cos \theta & B \cos (\theta + \phi) \end{bmatrix}^\mathsf{T}$ is the gyroscope readings adjusted by the facing estimation,
+\begin{equation}
+\begin{split}
+\hat{\mathbf{g}}' &= \mathbf{q}_{z, \theta} \hat{\mathbf{g}} \mathbf{q}_{z, \theta}^{-1} \\
+\mathbf{q}_{z, \theta} &= \begin{bmatrix} 0 & 0 & \sin \frac \theta 2 & \cos \frac \theta 2 \end{bmatrix}
+\text{,}
+\end{split}
+\end{equation}
+projected onto the $xy$ plane. Varying $\theta$ over $[0, 2\pi)$ traces out an elliptic trajectory of this point and $\theta$ is the current phase within the period. $\omega$ is the rate of increment of $\theta$.
 
 The prediction function is
 \begin{equation}
