@@ -4,8 +4,8 @@
 \documentclass{nime-alternate} % Uncomment when publishing final version
 
 % Uncomment only one of the ones below
-\usepackage{anonymize} 		   %Uncomment this line to publish
-% \usepackage[blind]{anonymize}%Uncomment this line for blind review
+% \usepackage{anonymize} 		   %Uncomment this line to publish
+\usepackage[blind]{anonymize}%Uncomment this line for blind review
 
 \usepackage[utf8]{inputenc}
 
@@ -39,7 +39,7 @@
   \affaddr{\anonymize{Beijing, China}}\\
   \email{\anonymize{wangrh22@mails.tsinghua.edu.cn}}
 \alignauthor
-\anonymize{Mi, H.}\titlenote{\anonymize{Corresponding author.}}\\
+\anonymize{Mi, H.}\titlenote{Corresponding author.}\\
   \affaddr{\anonymize{Academy of Arts \& Design, Tsinghua University}}\\
   \affaddr{\anonymize{Beijing, China}}\\
   \email{\anonymize{mhp@tsinghua.edu.cn}}
@@ -133,11 +133,11 @@ Also transmitted is a confidence indicator, which is the Frobenius norm of the e
 \subsection{Design Overview}
 Our demonstrative self-playing instrument is a 21-key glockenspiel that spans a register of 2.3 octaves by the diatonic major scale with the raised fourth and the flat sixth added.
 
-The instrument is accompanied by two ``wand'' controllers and can operate in both solo and co-operative mode. Signals received from the controllers drive the passing of musical time in a predetermined musical piece, similar to a musical box. Co-operative mode is entered by two controllers being operated simultaneously, where each controller corresponds to one voice (part) indicated by colours of the lights. The music only progresses when the motion of the two are roughly in synchronisation.
+The instrument is accompanied by two Malletwand controllers and can operate in both solo and co-operative mode. Signals received from the controllers drive the passing of musical time in a predetermined musical piece, similar to a musical box. Co-operative mode is entered by two controllers being operated simultaneously, where each controller corresponds to one voice (part) indicated by colours of the lights. The music only progresses when the motion of the two are roughly in synchronisation.
 
 \subsection{Construction}
 \subsubsection{Keys}
-The keys are laser-cut from aluminum of 5 mm thickness. We chose aluminum instead of an alloy since we would like a mellower timbre. Prior to production, we ordered a small number of samples from the fabricator to determine the acoustic characteristics of the material, i.e., timbre and the coefficient for resonant frequency. The resonant frequency of a vibrating metal bar is inversely proportional to the square root of its length. We thus calculate the desired lengths according to equal-temperament tuing, create the blueprints programmatically in OpenSCAD and send them for fabrication.
+The keys are laser-cut from aluminum of 5 mm thickness. We chose aluminum instead of an alloy since we would like a mellower timbre. Prior to production, we ordered a small number of samples from the fabricator to determine the acoustic characteristics of the material, i.e., timbre and the coefficient for resonant frequency. The resonant frequency of a vibrating metal bar is inversely proportional to the square root of its length. We thus calculate the desired lengths according to equal-temperament tuning, create the blueprints programmatically in OpenSCAD and send them for fabrication.
 
 \begin{figure*}[t!]
   \centering
@@ -159,7 +159,7 @@ The mechanical parts for the fixation of motors and mallets are all 3D-printed w
 \subsection{Performance}
 During operation, the glockenspiel plays a tune as the pendulum(s) swing(s) back and forth. The tempo of the music adjusts to the period(s) of pendular motion. Haptic feedback and lights on both the bob and the keys add tactility and visualisation to the embodied musical experience. Figure~\ref{fig:Banner} is a photo of the instrument in action.
 
-Please refer to the attached video for a performance recording.
+Please refer to the attached video for a performance recording.~\footnote{The video is available at \url{http://bit.ly/42xa08Q} during review. We have removed traces of the authors' identities.}
 
 \section{Discussion}
 
@@ -177,7 +177,7 @@ As we have written in the Introduction section, we imagine that this interface n
 
 Other musical features, or even other temporal formats, or even spatial expositions, may be involved as well. What about an installation that gives procedurally generated sounds? What about a film? A dance? A video game where cats chase the wand? A kaleidoscope? A planetarium?
 
-The estimation algorithms in the pendulum enables it to act as a standalone sensor, adding to the toolkit of digital artistic expression. What about an electronic mimicry of a windbell? A big hanging simulated telescope? A sparkling earring?
+The estimation algorithms in the pendulum enable it to act as a standalone sensor, adding to the toolkit of digital artistic expression. What about an electronic mimicry of a windbell? A big hanging simulated telescope? A sparkling earring?
 
 Another possible extrapolation lies in the mobile scenario. The sensors we used are standard in today's smartphones, and relevant APIs are readily available on modern web browsers. Thus, with the processing algorithms ported to JavaScript, websites will be able to create novel interactive experiences without special equipment, simply by asking the visitor to put their phone in a holder, attach a string, and swing it to their liking. What about such a musical box? We leave all these for the reader as exercises while we try our hands on a few.
 
