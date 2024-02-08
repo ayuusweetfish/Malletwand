@@ -10,6 +10,7 @@
 \usepackage[utf8]{inputenc}
 
 \usepackage{stfloats}
+\usepackage{amsmath}
 
 \begin{document}
 
@@ -47,10 +48,10 @@
 
 \maketitle
 
-\begin{figure*}[ptb]
+\begin{figure*}[h!]
   \centering
-  \includegraphics[width=1\textwidth]{placeholder.png}
-  \caption{The Malletwand controller with the prototype self-playing glockenspiel.}
+  \includegraphics[width=1\textwidth]{Mw_Banner.jpg}
+  \caption{The Malletwand controllers with the prototype self-playing glockenspiel.}
   \label{fig:Banner}
 \end{figure*}
 
@@ -100,14 +101,14 @@ We add a few simple features to enrich the feedback and interaction. Haptic feed
 \subsection{Construction}
 We design customised electronics for all of our devices. The handle contains a lithium polymer (Li-Po) battery, a microcontroller, a radio transceiver, a vibration motor, and various supporting components; the bob contains MEMS chips that form a 9-axis IMU (an accelerometer, a gyroscope, and a geomagnetometer). The complete structure is illustrated in Figure~\ref{fig:WandConstruction}.
 
-\begin{figure*}[h!]
+\begin{figure*}[t!]
   \centering
-  \includegraphics[width=1\textwidth]{placeholder.png}
-  \caption{(a) Illustration of the controller being operated by a participant. (b) Photo of the circuit board. (c) Block diagram of the electronic components involved.}
+  \includegraphics[width=1\textwidth]{Mw_Wand.pdf}
+  \caption{(a) Photo of the assembled circuit board before being cut. (b) Block diagram of the electronic components involved.}
   \label{fig:WandConstruction}
 \end{figure*}
 
-The board is fabricated as one, in order to ease soldering and debugging as we build the prototype. After testing is complete, we cut the board at the thin connection (in Figure~\ref{fig:WandConstruction}b) and connect the two parts with thin wires (8 strands of 32 AWG). The handle part is glued inside a 3D-printed casing with the wires hanging down onto the bob part, which is inserted onto a holder made of polymeric foam glued in a translucent plastic sphere filled with down cotton. We add fishing wires to strengthen the connection and prevent the electric wires from excessive tension and fatigue.
+The board is fabricated as one, in order to ease soldering and debugging as we build the prototype. After testing is complete, we cut the board at the thin connection (in Figure~\ref{fig:WandConstruction}a) and connect the two parts with thin wires (8 strands of 32 AWG). The handle part is glued inside a 3D-printed casing with the wires hanging down onto the bob part, which is inserted onto a holder made of polymeric foam glued in a translucent plastic sphere filled with down cotton. We add fishing wires to strengthen the connection and prevent the electric wires from excessive tension and fatigue.
 
 \subsection{Estimation Algorithm}
 All processing are done on the microcontroller device. The microcontroller we used, STM32G031, is an Arm Cortex-M0+ processor without a dedicated FPU, but our complete algorithm runs well within its 64 MHz system clock.
@@ -117,7 +118,7 @@ The algorithm requires an initial orientation calibration before employing an en
 \subsubsection{Orientation calibration}
 After assembly, the orientation of the circuit board inside the bob should be compensated for.
 
-The calibration is triggered by a wireless radio signal. The operator is then expected to hold the handle and let the bob stay stationary for a short while. Signals from the accelerometer are continuously monitored until they reach a sufficiently low deviation throughout a fixed time window of 3 seconds. This yields an axis vector that acts as the reference for future motion estimation from sensor readings which is saved in the persistent flash storage of the microcontroller.
+The calibration is triggered by a wireless radio signal. The operator is then expected to hold the handle and let the bob stay stationary for a short while. Signals from the accelerometer are continuously monitored until they reach a sufficiently low deviation throughout a fixed time window of 3 seconds. This yields an axis vector that acts as the reference for future motion estimation from sensor readings which is saved in the persistent flash storage of the microcontroller. For details, please refer to Appendix~\ref{appendix:calib-ori}.
 
 \subsubsection{Magnetometer calibration}
 As our algorithm relies on the geomagnetometer to improve accuracy of pose estimation, the distortion of the ambient magnetic field should also be compensated. Since indoor environments contain prominent and variable magnetic interference, this calibration is done online during operation. This works by continuously collecting the readings of the magnetometer and finding an ellipsoid fit that tries to distort the collected data in the form of 3D vectors onto a unit sphere. We employ the adjusted least squares estimator introduced by \cite{Markovsky_2004_ALS} with complementary steps by \cite{Renaudin2010}.
@@ -127,26 +128,26 @@ Our IMU produces readings at a sampling rate of 100 Hz, and the filtering algori
 
 Also transmitted is a confidence indicator, which is the Frobenius norm of the estimation covariance matrix in the EKF. This value allows both the controller and the actuator to avoid muddled time progression when the motion is not stably periodic, e.g., during the first few seconds since the beginning of interaction.
 
-\section{The ``Mallet''}
+\section{The ``Mallets''}
 
 \subsection{Design Overview}
 Our demonstrative self-playing instrument is a 21-key glockenspiel that spans a register of 2.3 octaves by the diatonic major scale with the raised fourth and the flat sixth added.
 
-The instrument is accompanied by two ``wand'' controllers and can operate in both individual and co-operative mode. Signals received from the controllers control the passing of musical time in a predetermined musical piece, similar to a musical box. Co-operative mode is entered by two controllers being operated simultaneously, where each controller corresponds to one voice (part) indicated by colours of the lights. The music only progresses when the motion of the two are roughly in synchronisation.
+The instrument is accompanied by two ``wand'' controllers and can operate in both solo and co-operative mode. Signals received from the controllers drive the passing of musical time in a predetermined musical piece, similar to a musical box. Co-operative mode is entered by two controllers being operated simultaneously, where each controller corresponds to one voice (part) indicated by colours of the lights. The music only progresses when the motion of the two are roughly in synchronisation.
 
 \subsection{Construction}
 \subsubsection{Keys}
 The keys are laser-cut from aluminum of 5 mm thickness. We chose aluminum instead of an alloy since we would like a mellower timbre. Prior to production, we ordered a small number of samples from the fabricator to determine the acoustic characteristics of the material, i.e., timbre and the coefficient for resonant frequency. The resonant frequency of a vibrating metal bar is inversely proportional to the square root of its length. We thus calculate the desired lengths according to equal-temperament tuing, create the blueprints programmatically in OpenSCAD and send them for fabrication.
 
-\subsubsection{Electronics}
-The electronics of the instrument comprise a main unit and 21 sub-units~\footnote{We have not finished assembling all the keys as of the time of submission of this manuscript; we hence temporarily use our 3-key prototype for demonstrations.}, one for each key. The main unit is responsible for the communication with the controller(s) as well as the delivery of power and control signals to the sub-units. Each sub-unit has a small BLDC motor that holds a yarn mallet, fixed onto a circuit board with a magnetic encoder, a tri-colour LED, and a microcontroller. The entire device is powered by a single DC supply between 9 V and 25 V into the main unit. The complete structure is illustrated in Figure~\ref{fig:MalletConstruction}.
-
-\begin{figure*}[h!]
+\begin{figure*}[t!]
   \centering
-  \includegraphics[width=1\textwidth]{placeholder.png}
+  \includegraphics[width=1\textwidth]{Mw_Mallet.pdf}
   \caption{(a) Overall photo of the instrument. (b) Close-up of a single sub-unit. (c) Block diagram of the electronic components involved.}
   \label{fig:MalletConstruction}
 \end{figure*}
+
+\subsubsection{Electronics}
+The electronics of the instrument comprise a main unit and 21 sub-units~\footnote{We have not finished assembling all the keys as of the time of submission of this manuscript; we hence temporarily use our 3-key prototype for demonstrations.}, one for each key. The main unit is responsible for the communication with the controller(s) as well as the delivery of power and control signals to the sub-units. Each sub-unit has a small BLDC motor that holds a yarn mallet, fixed onto a circuit board with a magnetic encoder, a tri-colour LED, and a microcontroller. The entire device is powered by a single DC supply between 9 V and 25 V into the main unit. The complete structure is illustrated in Figure~\ref{fig:MalletConstruction}.
 
 We choose I\textsuperscript{2}C as the communication protocol, because it needs only two electrical signals for multiple parallel devices. We use an I\textsuperscript{2}C accelerator chip on the main unit to get around rise time issues due to increased bus capacitance of long transmission wires.
 
@@ -158,7 +159,7 @@ The mechanical parts for the fixation of motors and mallets are all 3D-printed w
 \subsection{Performance}
 During operation, the glockenspiel plays a tune as the pendulum(s) swing(s) back and forth. The tempo of the music adjusts to the period(s) of pendular motion. Haptic feedback and lights on both the bob and the keys add tactility and visualisation to the embodied musical experience. Figure~\ref{fig:Banner} is a photo of the instrument in action.
 
-We attach a demonstration video with this report. Please refer to it.
+Please refer to the attached video for a performance recording.
 
 \section{Discussion}
 
@@ -172,7 +173,7 @@ Social play is encouraged through the attempts to synchronise between the duo. T
 One major shortcoming of the co-operative mode is the difficulty to synchronise the phases between the duo, due to interia preventing quick changes in speed, even more so regarding phase and position. This has the benefit of extending conversations between participants, but the less experienced of them might not figure out effective ways quickly and intuitively. In this regard, we are considering improving on the co-operative play mode, either by revamping the interaction rules or by extra hints in the form of synchronised haptic feedback or textual hints.
 
 \subsection{Extrapolations and Future Work}
-As we have written in the Introduction section, we imagine that this interface is not limited to our glockenspiel instrument. Any device that plays music can employ a pendulum interface to invite participants into musical time. Hybrid formats, including projections and mappings, or musical devices remotely incited beyond kilometers, opens doors to tactility in a hybrid world.
+As we have written in the Introduction section, we imagine that this interface not be limited to our glockenspiel instrument. Any device that plays music can employ a pendulum interface to invite participants into musical time. Hybrid formats, including projections and mappings, or musical devices remotely incited beyond kilometers, opens doors to tactility in a hybrid world.
 
 Other musical features, or even other temporal formats, or even spatial expositions, may be involved as well. What about an installation that gives procedurally generated sounds? What about a film? A dance? A video game where cats chase the wand? A kaleidoscope? A planetarium?
 
@@ -181,7 +182,7 @@ The estimation algorithms in the pendulum enables it to act as a standalone sens
 Another possible extrapolation lies in the mobile scenario. The sensors we used are standard in today's smartphones, and relevant APIs are readily available on modern web browsers. Thus, with the processing algorithms ported to JavaScript, websites will be able to create novel interactive experiences without special equipment, simply by asking the visitor to put their phone in a holder, attach a string, and swing it to their liking. What about such a musical box? We leave all these for the reader as exercises while we try our hands on a few.
 
 \section{Conclusion}
-You have only 200 words remaining \char`\^ \char`\^
+Malletwand is our first step in spreading the enjoyablility of music through a tactile medium. It is to our delight to have implemented the system and seeing it bear the unique approachability and adaptability to varied levels of musical expertise, adding to the state-of-the-art (pun intended) repertoire of physical-system controller interfaces. We realise that this interface has the potential to adapt to more instruments and scenarios, and put forward what we have envisaged. We share our work in the hope that our methods and insights can be useful to those who share the aspirations with us.
 
 \section{Acknowledgments}
 Anonymised.
@@ -192,45 +193,62 @@ Anonymised.
 \appendix
 \section{Details of the Signal Processing Algorithms}
 \label{appendix:signal-processing}
+We try to outline the mathematical derivations of the algorithms. For details, please refer to the source code.
 
 \subsection{Calibration}
 \subsubsection{Orientation}
-\subsubsection{Magnetometer}
-This task can be formulated as follows: given a set of 3-dimensional vectors $\mathbf{u}_{1 \dots n}$, find an affine transform $(\mathbf{Q}, \mathbf{o})$ such that the set of $\{\mathbf{u}'_i \mathbin{\mathop{|}} \mathbf{u}'_i = \mathbf{Q} \mathbf{u}_i + \mathbf{o}\}$ best fits onto a unit sphere.
+\label{appendix:calib-ori}
+An accelerometer reading is a 3-dimensional vector. When a sufficiently low variation of readings is achieved during calibration, their average vector is normalized and taken as the reference axis $\mathbf{u}$. We find a quaternion $\mathbf{q}$ that rotates this vector to the $+z$ unit vector, $\mathbf{z}^+ = \begin{bmatrix} 0 & 0 & 1 \end{bmatrix}^\mathsf{T}$. This is achieved by setting $\mathbf{q}_1 = \begin{bmatrix} \mathbf{u} \times \mathbf{z^+} & (1 + \mathbf{u} \cdot \mathbf{z^+}) \end{bmatrix}$ and $\mathbf{q} = \mathbf{q}_1 \mathbin{\mathop{/}} \lvert \mathbf{q}_1 \rvert$.
 
-We follow the method of \cite{Renaudin2010}. Employing the ALS estimator in \cite{Markovsky_2004_ALS}, we find a fit $(\mathbf{A}, \mathbf{b}, d)$ to the set of equations
-\begin{equation}\label{eqn:ellipsoid1}
-\mathbf{u}_i^\mathsf{T} \mathbf{A} \mathbf{u}_i + \mathbf{b}^\mathsf{T} \mathbf{u}_i + d = 0\text{,}
-\end{equation}
-and then calculate an inverse transform that converts this ellipsoid back to the unit sphere.
-
-If we rewrite (\ref{eqn:ellipsoid1}) as
-\begin{equation}\label{eqn:ellipsoid2}
-(\mathbf{u}_i - \mathbf{c})^\mathsf{T} \ \mathbf{R} \ (\mathbf{u}_i - \mathbf{c}) = 1\text{,}
-\end{equation}
-the centre is then derived from the expansion of (\ref{eqn:ellipsoid2}) as $\mathbf{c} = -\frac 1 2 \mathbf{A}^{-1} \mathbf{b}$.
-
-Also can be derived is $\mathbf{R} = \frac {1}{\mathbf{c}^\mathsf{T} \mathbf{A} \mathbf{c} - d} \mathbf{A}$. To find $\mathbf{Q}$, we need to find the matrix square root of $\mathbf{R}$, since (\ref{eqn:ellipsoid2}) can be rewritten as
-\begin{equation}\label{eqn:ellipsoid3}
+This quaternion $\mathbf{q}$ transforms the reference frame of the accelerometer such that the $xy$ plane corresponds to the local ground, whose normal vector is the $z$ axis. The rotation specified by $\mathbf{q}$ is applied to future raw accelerometer readings $\tilde{\mathbf{a}}$ and gyroscope readings $\tilde{\mathbf{g}}$, assuming that their reference frames are aligned, to yield a carlibrated 6-axis reading: % , as well as the magnetometer readings after its own calibration has been carried out, in order to give an absolute orientation with reference to the ground (refer to the explanation below for further details).
+\begin{equation}\label{eqn:calib-ori}
 \begin{aligned}
-(\mathbf{Q} \ (\mathbf{u}_i - \mathbf{c}))^\mathsf{T} \ (\mathbf{Q} \ (\mathbf{u}_i - \mathbf{c})) & \\
-(\mathbf{u}_i - \mathbf{c})^\mathsf{T} \ \mathbf{Q}^\mathsf{T} \ \mathbf{Q} \ (\mathbf{u}_i - \mathbf{c}) &= 1\text{,}
+\mathbf{a} &= \mathbf{q} \tilde{\mathbf{a}} \mathbf{q}^{-1}\text{,} \\
+\mathbf{g} &= \mathbf{q} \tilde{\mathbf{g}} \mathbf{q}^{-1}\text{.} \\
 \end{aligned}
 \end{equation}
-and $\mathbf{Q}$ is supposed to be symmetric.
 
-Since the ALS estimator only requires an accumulated matrix $\Psi$ and not the individual $\mathbf{u}_i$, we are able to carry out the calculation online in constant rather than linear space.
+\subsubsection{Magnetometer}
+\label{appendix:calib-mag}
+This task can be formulated as follows: given a set of 3-dimensional vectors $\{ \tilde{\mathbf{m}}_{1 \dots n} \}$, find an affine transform $(\mathbf{Q}, \mathbf{o})$ such that the set of $\{\mathbf{Q} \tilde{\mathbf{m}}_i + \mathbf{o}\}$ best fits onto a unit sphere.
+
+We follow the method of \cite{Renaudin2010}, employing the ALS estimator in \cite{Markovsky_2004_ALS} to find a fit $(\mathbf{A}, \mathbf{c})$ to the set of equations
+$(\tilde{\mathbf{m}}_i - \mathbf{c})^\mathsf{T} \mathbf{A} (\tilde{\mathbf{m}}_i - \mathbf{c}) = 1$
+and then calculating an inverse transform that converts this ellipsoid back to the unit sphere.
+
+Since the ALS estimator only requires an accumulated matrix $\mathbf{\Psi}$ and not the individual $\tilde{\mathbf{m}}_i$, we are able to carry out the calculation online in constant rather than linear space.
 
 \subsection{Estimation}
 \subsubsection{Facing}
-Our complementary filter design follows that in~\cite{Min_Complementary}. This filter balances between a proportional signal $\theta$ and a derivative signal $\dot\theta$. Here we treat the orientation as the value being estimated. The calibrated magnetometer provides the $\theta$ signal, while the calibrated gyroscope provides $\dot\theta$. We manually and empirically tune the quality factor to be $1 \mathbin{\mathop{/}} \sqrt{2}$ and the corner frequency to be $24\ \text{rad/s} = 3.82\ \text{Hz}$. A different value might be needed if the models of sensors change.
+\label{appendix:est-facing}
+Our complementary filter design follows that in~\cite{Min_Complementary}, namely, a filter satisfying the transfer equation
+\begin{equation}
+\begin{split}
+& \hat{\theta} = \frac 1 {s^2 + k_\mathrm{p} s + k_\mathrm{i}} \left( s \dot\theta + (k_\mathrm{p} s + k_\mathrm{i}) \theta \right) \text{,} \\
+& k_\mathrm{p} = \frac {\omega_0} {Q_\mathrm{P}},\qquad k_\mathrm{i} = \omega_0^2\text{.}
+\end{split}
+\end{equation}
+This filter balances between a proportional signal $\theta$ and a derivative signal $\dot\theta$. Here we treat the 2-dimensional orientation on the $xy$ plane as the value being estimated. The calibrated magnetometer provides the $\theta$ signal, while the calibrated gyroscope provides $\dot\theta$.
+
+The input signals are given by $\theta = -\mathop{\mathrm{arctan}} \frac {\mathbf{m}_y} {\mathbf{m}_x}$ and $\dot\theta = \mathrm{d}{\mathbf{g}_y} \mathbin{\mathop{/}} \mathrm{d}t$. Here $\mathbf{m}$ is the calibrated and aligned magnetometer reading,
+\begin{equation}\label{eqn:est-facing}
+\mathbf{m} = \mathbf{q} \ (\mathbf{Q}\tilde{\mathbf{m}} + \mathbf{o}) \ \mathbf{q}^{-1}\text{.}
+\end{equation}
+% , and $\mathbf{g}$ is the calibrated gyroscope reading $\mathbf{g} = \mathbf{q} \tilde{\mathbf{g}} \mathbf{q}^{-1}$.
+
+We fix the pole quality factor as $Q_\mathrm{P} = 1 \mathbin{\mathop{/}} \sqrt{2}$ and manually and empirically tune the corner frequency at $\omega_0 = 24\ \text{rad/s} \approx 3.8\ \text{Hz}$. A slightly different value might be needed if the characteristics (models) of sensors change.
 
 \subsubsection{Motion}
+\label{appendix:est-motion}
 In the extended Kalman filter we formulate the state vector as $\mathbf{x} = \begin{bmatrix} \omega & A & \theta & B & \phi \end{bmatrix}^\mathsf{T}$, where the observation $\mathbf{z} = \begin{bmatrix} A \cos \theta & B \cos (\theta + \phi) \end{bmatrix}^\mathsf{T}$ is the adjusted gyroscope readings projected onto the $xy$ plane. Varying $\theta$ over $[0, 2\pi)$ traces out an elliptic trajectory of this point and $\theta$ is the current phase within the period. $\omega$ is the rate of increment of $\theta$.
 
-The process noise covariance matrix $\mathbf{Q}$ is set to be a diagonal matrix with the first entry prominently larger than the others, since $\omega$ is actively changed by the participant. If $A, \theta, B, \phi$ are assigned large process noise variances, the filter may frequently get stuck in a local optimum where all parameters oscillate, altogether stopping the steady progress of phase.
+The prediction function is
+\begin{equation}
+f(\mathbf{x}) = \begin{bmatrix} \omega & A & \theta + \omega \Delta t & B & \phi \end{bmatrix}^\mathsf{T}\text{.}
+\end{equation}
+The process noise covariance matrix is set to be a diagonal matrix with the first entry prominently larger than the others, since $\omega$ is actively changed by the participant. If $A, \theta, B, \phi$ are assigned large process noise variances, the filter may frequently get stuck in a local optimum where all parameters oscillate, altogether stopping the steady progress of phase.
 
-After the estimation of $A, \theta, B, \phi$ are obtained, we find the tilt angle of the major axis by $\delta = -\frac 1 2 \mathrm{arctan} \frac {A^2 + B^2 \cos 2\phi} {-B^2 \sin 2\phi}$, and calculate the difference between $\theta$ and $\delta + \frac 1 4 \pi$ to align the zero phase to the fastest-moving point. For details, please refer to the source code.
+After the estimation of $A, \theta, B, \phi$ are obtained, we find the tilt angle of the major axis by $\delta = \frac 1 2 \mathop{\mathrm{arctan}} \frac {A^2 + B^2 \cos 2\phi} {B^2 \sin 2\phi}$, and calculate the difference $\theta - (\delta + \frac 1 4 \pi)$ to align the zero phase to the fastest-moving point.
 
 \section{Source Repository}
 All of our design files (printed circuit board assemblies, mechanical models) and source code are published at \newline \anonymize{\texttt{https://github.com/ayuusweetfish/Malletwand}}.
