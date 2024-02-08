@@ -111,7 +111,7 @@ We design customised electronics for all of our devices. The handle contains a l
 The board is fabricated as one, in order to ease soldering and debugging as we build the prototype. After testing is complete, we cut the board at the thin connection (in Figure~\ref{fig:WandConstruction}a) and connect the two parts with thin wires (8 strands of 32 AWG). The handle part is glued inside a 3D-printed casing with the wires hanging down onto the bob part, which is inserted onto a holder made of polymeric foam glued in a translucent plastic sphere filled with down cotton. We add fishing wires to strengthen the connection and prevent the electric wires from excessive tension and fatigue.
 
 \subsection{Estimation Algorithm}
-All processing are done on the microcontroller device. The microcontroller we used, STM32G031, is an Arm Cortex-M0+ processor without a dedicated FPU, but our complete algorithm runs well within its 64 MHz system clock.
+All processing is done on the microcontroller device. The microcontroller we used, STM32G031, is an Arm Cortex-M0+ processor without a dedicated FPU, but our complete algorithm runs well within its 64 MHz system clock with software floating-point arithmetic.
 
 The algorithm requires an initial orientation calibration before employing an ensemble of filters to process the sensor signals. The calibration step is run once after assembly and before finishing deployment. We introduce these two parts respectively. To keep our description concise, we defer all of the mathematical details to Appendix~\ref{appendix:signal-processing}.
 
@@ -210,18 +210,18 @@ This quaternion $\mathbf{q}$ transforms the reference frame of the accelerometer
 
 \subsubsection{Magnetometer}
 \label{appendix:calib-mag}
-This task can be formulated as follows: given a set of 3-dimensional vectors $\{ \tilde{\mathbf{m}}_{1 \dots n} \}$, find an affine transform $(\mathbf{Q}, \mathbf{o})$ such that the set of $\{\mathbf{Q} \tilde{\mathbf{m}}_i + \mathbf{o}\}$ best fits onto a unit sphere.
+This task can be formulated as follows: given a set of 3-dimensional vectors $\{ \tilde{\mathbf{m}}_i \}$, find an affine transform $(\mathbf{Q}, \mathbf{o})$ such that the set of $\{\mathbf{Q} \tilde{\mathbf{m}}_i + \mathbf{o}\}$ best fits onto a unit sphere.
 
 We follow the method of \cite{Renaudin2010}, employing the ALS estimator in \cite{Markovsky_2004_ALS} to find a fit $(\mathbf{A}, \mathbf{c})$ to the set of equations
 $(\tilde{\mathbf{m}}_i - \mathbf{c})^\mathsf{T} \mathbf{A} (\tilde{\mathbf{m}}_i - \mathbf{c}) = 1$
 and then calculating an inverse transform that converts this ellipsoid back to the unit sphere.
 
-Since the ALS estimator only requires an accumulated matrix $\mathbf{\Psi}$ and not the individual $\tilde{\mathbf{m}}_i$, we are able to carry out the calculation online in constant rather than linear space.
+Since the ALS estimator only requires an accumulated matrix $\mathbf{\Psi}$ and not the individual $\tilde{\mathbf{m}}_i$, we are able to carry out the calculation online in constant rather than linear memory space.
 
 \subsection{Estimation}
 \subsubsection{Facing}
 \label{appendix:est-facing}
-Our complementary filter design follows that in~\cite{Min_Complementary}, namely, a filter satisfying the transfer equation
+Our complementary filter design follows that in~\cite{Min_Complementary}, namely, one satisfying the transfer equation
 \begin{equation}
 \begin{split}
 & \hat{\theta} = \frac 1 {s^2 + k_\mathrm{p} s + k_\mathrm{i}} \left( s \dot\theta + (k_\mathrm{p} s + k_\mathrm{i}) \theta \right) \text{,} \\
@@ -243,8 +243,8 @@ We fix the pole quality factor as $Q_\mathrm{P} = 1 \mathbin{\mathop{/}} \sqrt{2
 In the extended Kalman filter we formulate the state vector as $\mathbf{x} = \begin{bmatrix} \omega & A & \theta & B & \phi \end{bmatrix}^\mathsf{T}$, where the observation $\mathbf{z} = \begin{bmatrix} A \cos \theta & B \cos (\theta + \phi) \end{bmatrix}^\mathsf{T}$ is the gyroscope readings adjusted by the facing estimation,
 \begin{equation}
 \begin{split}
-\hat{\mathbf{g}}' &= \mathbf{q}_{z, \theta} \hat{\mathbf{g}} \mathbf{q}_{z, \theta}^{-1} \\
-\mathbf{q}_{z, \theta} &= \begin{bmatrix} 0 & 0 & \sin \frac \theta 2 & \cos \frac \theta 2 \end{bmatrix}
+\hat{\mathbf{g}}' &= \mathbf{r}_{z, \theta} \hat{\mathbf{g}} \mathbf{r}_{z, \theta}^{-1} \\
+\mathbf{r}_{z, \theta} &= \begin{bmatrix} 0 & 0 & \sin \frac \theta 2 & \cos \frac \theta 2 \end{bmatrix}
 \text{,}
 \end{split}
 \end{equation}
