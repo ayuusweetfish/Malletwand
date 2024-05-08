@@ -10,12 +10,12 @@
 
 #define BMI_CS_PIN  GPIO_PIN_3
 #define BMI_CS_PORT GPIOA
-#define nRF_CS_PIN  GPIO_PIN_7
+#define nRF_CS_PIN  GPIO_PIN_11
 #define nRF_CS_PORT GPIOA
-#define nRF_CE_PIN  GPIO_PIN_11
+#define nRF_CE_PIN  GPIO_PIN_12
 #define nRF_CE_PORT GPIOA
-#define VDDSUB_G_PIN  GPIO_PIN_9
-#define VDDSUB_G_PORT GPIOB
+#define VDDSUB_G_PIN  GPIO_PIN_3
+#define VDDSUB_G_PORT GPIOA
 #define MOTOR_G_PIN   GPIO_PIN_4
 #define MOTOR_G_PORT  GPIOA
 
@@ -708,90 +708,7 @@ int main()
   HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 1);
   HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
 
-  // ======== LED Timers ========
-  // APB1 = 16 MHz
-  // period = 4 kHz = 4000 cycles
-
-  // LED Blue, TIM14 Ch1, PB1
-  gpio_init.Pin = GPIO_PIN_1;
-  gpio_init.Mode = GPIO_MODE_AF_PP;
-  gpio_init.Alternate = GPIO_AF0_TIM14;
-  gpio_init.Pull = GPIO_NOPULL;
-  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &gpio_init);
-  __HAL_RCC_TIM14_CLK_ENABLE();
-  tim14 = (TIM_HandleTypeDef){
-    .Instance = TIM14,
-    .Init = {
-      .Prescaler = 1 - 1,
-      .CounterMode = TIM_COUNTERMODE_UP,
-      .Period = 4000 - 1,
-      .ClockDivision = TIM_CLOCKDIVISION_DIV1,
-      .RepetitionCounter = 0,
-    },
-  };
-  HAL_TIM_PWM_Init(&tim14);
-  TIM_OC_InitTypeDef tim14_ch1_oc_init = {
-    .OCMode = TIM_OCMODE_PWM2,
-    .Pulse = 0, // to be filled
-    .OCPolarity = TIM_OCPOLARITY_HIGH,
-  };
-  HAL_TIM_PWM_ConfigChannel(&tim14, &tim14_ch1_oc_init, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&tim14, TIM_CHANNEL_1);
-
-  // LED Green, TIM16 Ch1N, PB6
-  gpio_init.Pin = GPIO_PIN_6;
-  gpio_init.Mode = GPIO_MODE_AF_PP;
-  gpio_init.Alternate = GPIO_AF2_TIM16;
-  gpio_init.Pull = GPIO_NOPULL;
-  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &gpio_init);
-  __HAL_RCC_TIM16_CLK_ENABLE();
-  tim16 = (TIM_HandleTypeDef){
-    .Instance = TIM16,
-    .Init = {
-      .Prescaler = 1 - 1,
-      .CounterMode = TIM_COUNTERMODE_UP,
-      .Period = 4000 - 1,
-      .ClockDivision = TIM_CLOCKDIVISION_DIV1,
-      .RepetitionCounter = 0,
-    },
-  };
-  HAL_TIM_PWM_Init(&tim16);
-  TIM_OC_InitTypeDef tim16_ch1_oc_init = {
-    .OCMode = TIM_OCMODE_PWM2,
-    .Pulse = 0, // to be filled
-    .OCNPolarity = TIM_OCNPOLARITY_HIGH,  // Output is TIM16_CH1N
-  };
-  HAL_TIM_PWM_ConfigChannel(&tim16, &tim16_ch1_oc_init, TIM_CHANNEL_1);
-  HAL_TIMEx_PWMN_Start(&tim16, TIM_CHANNEL_1);
-
-  // LED Red, TIM17 Ch1N PB7
-  gpio_init.Pin = GPIO_PIN_7;
-  gpio_init.Mode = GPIO_MODE_AF_PP;
-  gpio_init.Alternate = GPIO_AF2_TIM17;
-  gpio_init.Pull = GPIO_NOPULL;
-  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &gpio_init);
-  __HAL_RCC_TIM17_CLK_ENABLE();
-  tim17 = (TIM_HandleTypeDef){
-    .Instance = TIM17,
-    .Init = {
-      .Prescaler = 1 - 1,
-      .CounterMode = TIM_COUNTERMODE_UP,
-      .Period = 4000 - 1,
-      .ClockDivision = TIM_CLOCKDIVISION_DIV1,
-      .RepetitionCounter = 0,
-    },
-  };
-  HAL_TIM_PWM_Init(&tim17);
-  TIM_OC_InitTypeDef tim17_ch1_oc_init = {
-    .OCMode = TIM_OCMODE_PWM2,
-    .Pulse = 0, // to be filled
-    .OCNPolarity = TIM_OCNPOLARITY_HIGH,  // Output is TIM17_CH1N
-  };
-  HAL_TIM_PWM_ConfigChannel(&tim17, &tim17_ch1_oc_init, TIM_CHANNEL_1);
-  HAL_TIMEx_PWMN_Start(&tim17, TIM_CHANNEL_1);
+  while (1) { }
 
   // ======== SPI ========
   // SPI1
@@ -869,132 +786,6 @@ int main()
   HAL_Delay(200);
   TIM14->CCR1 = 0;
 
-  // SPI2
-  // SPI2_SCK (PA0 AF0), SPI2_MOSI (PA10 AF0)
-  gpio_init.Pin = GPIO_PIN_0 | GPIO_PIN_10;
-  gpio_init.Mode = GPIO_MODE_AF_PP;
-  gpio_init.Alternate = GPIO_AF0_SPI2;
-  gpio_init.Pull = GPIO_NOPULL;
-  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &gpio_init);
-  // Remap pin 17 (default PA12) to PA10
-  __HAL_RCC_SYSCFG_CLK_ENABLE();
-  SYSCFG->CFGR1 |= SYSCFG_REMAP_PA12;
-
-  __HAL_RCC_SPI2_CLK_ENABLE();
-  spi2.Instance = SPI2;
-  spi2.Init.Mode = SPI_MODE_MASTER;
-  spi2.Init.Direction = SPI_DIRECTION_1LINE;
-  spi2.Init.CLKPolarity = SPI_POLARITY_LOW; // CPOL = 0
-  spi2.Init.CLKPhase = SPI_PHASE_1EDGE;     // CPHA = 0
-  spi2.Init.NSS = SPI_NSS_SOFT;
-  spi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  spi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  spi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  spi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  spi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;  // APB / 64 = 1 MHz
-  HAL_SPI_Init(&spi2);
-  __HAL_SPI_ENABLE(&spi2);
-
-  // BMI270 CS
-  gpio_init.Pin = BMI_CS_PIN;
-  gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
-  gpio_init.Pull = GPIO_NOPULL;
-  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(BMI_CS_PORT, &gpio_init);
-
-  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0); HAL_Delay(1);
-  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1); HAL_Delay(1);
-  bmi270_read_reg(0x00);
-  bmi270_write_reg(0x7E, 0xB6); // Soft reset
-  HAL_Delay(1);
-
-  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0); HAL_Delay(1);
-  HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1); HAL_Delay(1);
-  bmi270_read_reg(0x00);
-  bmi270_write_reg(0x6B, 0x01); // IF_CONF.spi3 = 1
-  HAL_Delay(1);
-  uint8_t chip_id = bmi270_read_reg(0x00);
-  swv_printf("BMI270 chip ID = 0x%02x\n", (int)chip_id);
-
-  bmi270_write_reg(0x7C, 0x00);
-  HAL_Delay(1);
-  bmi270_write_reg(0x59, 0x00);
-  bmi270_write_burst(bmi270_config_file, sizeof bmi270_config_file);
-  bmi270_write_reg(0x59, 0x01);
-  HAL_Delay(150);
-
-  // INTERNAL_STATUS
-  uint8_t init_status = bmi270_read_reg(0x21) & 0xF;
-  if (init_status == 0x1) {
-    swv_printf("BMI270 init ok\n");
-  } else {
-    swv_printf("BMI270 init status 0x%02x\n", (int)init_status);
-  }
-
-  // Normal mode
-  bmi270_write_reg(0x7D, 0b0110); // PWR_CTRL.gyr_en = 1, .acc_en = 1
-  bmi270_write_reg(0x40, 0xA8);   // ACC_CONF
-  bmi270_write_reg(0x41, 0x01);   // ACC_RANGE: +/-4g
-  bmi270_write_reg(0x42, 0xA9);   // GYR_CONF
-  bmi270_write_reg(0x43, 0x00);   // GYR_RANGE: +/-2000dps
-  HAL_Delay(10);
-
-  bmi270_write_reg(0x6B, 0x21);   // IF_CONF.aux_en = 1
-  bmi270_write_reg(0x7D, 0b0110); // PWR_CTRL.aux_en = 0
-  bmi270_write_reg(0x4B, 0x30 << 1);  // AUX_DEV_ID
-  bmi270_write_reg(0x4C, 0b10001111);
-    // AUX_IF_CONF
-    //   .aux_rd_burst = 0x3 (length 8)
-    //   .man_rd_burst = 0x3 (length 8)
-    //   .aux_manual_en = 1
-  // Write to ODR (0x1A), value 100
-  bmi270_write_reg(0x4F, 100);
-  bmi270_write_reg(0x4E, 0x1A);
-  HAL_Delay(1);
-  // Write to Internal Control 0 (0x1B), value 0xA1 (Cmm_freq_en, Auto_SR_en, Take_meas_M)
-  bmi270_write_reg(0x4F, 0xA1);
-  bmi270_write_reg(0x4E, 0x1B);
-  HAL_Delay(1);
-  // Write to Internal Control 2 (0x1D), value 0x10 (Cmm_en)
-  bmi270_write_reg(0x4F, 0x10);
-  bmi270_write_reg(0x4E, 0x1D);
-  HAL_Delay(1);
-
-  bmi270_write_reg(0x7D, 0b0111); // PWR_CTRL.aux_en = 1
-  bmi270_write_reg(0x4D, 0x00);   // AUX_RD_ADDR
-  bmi270_write_reg(0x4C, 0b00001111); // AUX_IF_CONF.aux_manual_en = 0
-  HAL_Delay(10);
-
-  while (0) {
-    uint8_t data[32] = {1, 2, 3, 4, 5, 6, 7, 8};
-    bmi270_read_burst(0x04, data, 8);
-    uint16_t aux_x = ((uint16_t)data[0] << 8) | data[1];
-    uint16_t aux_y = ((uint16_t)data[2] << 8) | data[3];
-    uint16_t aux_z = ((uint16_t)data[4] << 8) | data[5];
-    uint16_t aux_r = ((uint16_t)data[6] << 8) | data[7];
-    swv_printf("aux = %04x %04x %04x %04x\n",
-      (unsigned)aux_x, (unsigned)aux_y, (unsigned)aux_z, (unsigned)aux_r);
-    HAL_Delay(10);
-  }
-
-  // Signal processing
-  quat q_ref = (quat){0, 0, 0, 1};
-  float m_tfm[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-  vec3 m_cen = (vec3){0, 0, 0};
-  float ekf_x[5] = {5, 1, 0, 1, 0};
-  float ekf_P[5][5] = {
-    {5, 0, 0, 0, 0},
-    {0, 1, 0, 0, 0},
-    {0, 0, 4, 0, 0},
-    {0, 0, 0, 1, 0},
-    {0, 0, 0, 0, 4},
-  };
-
-  static vec3 acc_history[300];
-  int acc_ptr = 0;
-  float mag_psi[10][10] = {{ 0 }};
-
   // ======== Main loop ========
 
   struct proceed_t {
@@ -1008,186 +799,6 @@ int main()
   int32_t omega_i;
   int16_t readings_timestamp = 0;
 
-  struct proceed_t read_bmi270_and_update() {
-    uint8_t data[24];
-    bmi270_read_burst(0x04, data, 23);
-    // for (int i = 0; i < 23; i++) swv_printf("%02x%c", (int)data[i], i == 22 ? '\n' : ' ');
-    // Assumes little endian
-    mag_out[2] = satneg16(((int16_t)((int8_t)data[0] << 8) | data[1]) + 0x8000);
-    mag_out[0] =         (((int16_t)((int8_t)data[2] << 8) | data[3]) + 0x8000);
-    mag_out[1] = satneg16(((int16_t)((int8_t)data[4] << 8) | data[5]) + 0x8000);
-    acc_out[2] =          *( int16_t *)(data +  8);
-    acc_out[0] = satneg16(*( int16_t *)(data + 10));
-    acc_out[1] = satneg16(*( int16_t *)(data + 12));
-    gyr_out[2] =          *( int16_t *)(data + 14);
-    gyr_out[0] = satneg16(*( int16_t *)(data + 16));
-    gyr_out[1] = satneg16(*( int16_t *)(data + 18));
-    data[23] = 0;
-    uint32_t time = *(uint32_t *)(data + 20);
-    // Gyroscope calibration
-    int8_t gyr_cas = ((int8_t)bmi270_read_reg(0x3C) << 1) >> 1;
-    gyr_out[0] -= ((uint32_t)gyr_cas * gyr_out[2]) >> 9;
-
-    if (!(
-      (mag_out[0] != 0x7fff || mag_out[1] != 0x7fff || mag_out[2] != 0x7fff)
-      && (acc_out[0] != 0x0000 || acc_out[1] != 0x0000 || acc_out[2] != 0x0000
-       || gyr_out[0] != 0x0000 || gyr_out[1] != 0x0000 || gyr_out[2] != 0x0000)
-    ))
-      // Ignoring invalid data at startup
-      return (struct proceed_t){read_bmi270_and_update, 10};
-
-    readings_timestamp++;
-
-    vec3 acc = (vec3){(float)acc_out[0], (float)acc_out[1], (float)acc_out[2]};
-    vec3 gyr = (vec3){(float)gyr_out[0], (float)gyr_out[1], (float)gyr_out[2]};
-    vec3 mag = (vec3){(float)mag_out[0], (float)mag_out[1], (float)mag_out[2]};
-    float magScale = 2.f / 1024;  // unit = 0.5 G = 0.05 mT ≈ geomagnetic field
-    mag = vec3_scale(mag, magScale);
-
-    // In calibration phase?
-    if (acc_ptr < 300) {
-      acc_history[acc_ptr++] = acc;
-      elli_fit_insert(mag_psi, mag, 0.01f);
-      if (acc_ptr == 300) {
-        // Check average distance
-        vec3 acc_avg = (vec3){ 0 };
-        for (int i = 0; i < 300; i++)
-          acc_avg = vec3_add(acc_avg, acc_history[i]);
-        acc_avg = vec3_scale(acc_avg, 1.0f / 300);
-        float dist = 0;
-        for (int i = 0; i < 300; i++)
-          dist += vec3_distsq(acc_avg, acc_history[i]);
-        dist /= (300UL * 8192 * 8192);  // 8192 counts = 1g
-        // swv_printf("%05d\n", (int)(dist * 10000));
-        if (dist > 0.1) {
-          // Retry
-          TIM17->CCR1 = 400;
-          for (int i = 0; i < 200; i++)
-            acc_history[i] = acc_history[i + 100];
-          acc_ptr = 200;
-          HAL_Delay(100);
-          TIM17->CCR1 = 0;
-        } else {
-          // Calibrated!
-          q_ref = rot_from_endpoints(acc_avg, (vec3){0, 0, 1});
-          float c[3];
-          elli_fit_psi(mag_psi, m_tfm, c);
-          m_cen = (vec3){c[0], c[1], c[2]};
-          TIM17->CCR1 = 400;
-          TIM16->CCR1 = 400;
-        }
-      }
-    }
-
-    vec3 acc_raw = acc;
-    vec3 gyr_raw = gyr;
-    vec3 mag_raw = mag;
-    acc = quat_rot(q_ref, acc_raw);
-    gyr = quat_rot(q_ref, gyr_raw);
-    mag = vec3_transform(m_tfm, vec3_diff(mag, m_cen));
-    mag = quat_rot(q_ref, mag_raw);
-    vec3 mag_upright_g = quat_rot(rot_from_endpoints(acc, (vec3){0, 0, 1}), mag);
-
-    float xy_ori_d = gyr.z / (16.384 * 180) * M_PI;
-    float xy_ori = -atan2f(mag_upright_g.y, mag_upright_g.x);
-    static struct filter xy_f = { 0 };
-    float xy_ori_filtered = filter_update(&xy_f, xy_ori, xy_ori_d);
-
-    vec3 gyr_calibrated =
-      vec3_scale(vec_rot(gyr, (vec3){0, 0, 1}, xy_ori_filtered), 1.f / (16.384 * 360));
-    /* swv_printf("EKF step %6d %6d | gyr %6d %6d\n",
-      (int)(gyr_calibrated.x * 100000), (int)(gyr_calibrated.y * 100000),
-      (int)(gyr.x / (16.384 * 360) * 100000),
-      (int)(gyr.y / (16.384 * 360) * 100000)); */
-    float z[2] = {gyr_calibrated.x, gyr_calibrated.y};
-    ekf_step(ekf_x, ekf_P, z);
-
-    float ω = ekf_x[0];
-    float A = ekf_x[1];
-    float θ = ekf_x[2];
-    float B = ekf_x[3];
-    float ϕ = ekf_x[4];
-    float δ = atan2(A*A + B*B * cosf(2*ϕ), -B*B * sinf(2*ϕ));
-    float cen_phase = -0.5 * δ + 0.25 * M_PI;
-    /* swv_printf("%08x %08x %07d\n",
-      *(int *)&cen_phase,
-      *(int *)&θ,
-      (int)((cen_phase - θ) * 1000)); */
-    float music_phase = fmodf(θ - cen_phase + M_PI * 4, M_PI * 2);
-    static float last_music_phase = 0;
-    music_phase_i = (int32_t)(music_phase * 1000000);
-
-    float P_norm = 0;
-    for (int i = 0; i < 5; i++)
-      for (int j = 0; j < 5; j++)
-        P_norm += ekf_P[i][j] * ekf_P[i][j];
-    uncertainty_i = (int)(P_norm * 1000000);
-    omega_i = (int)(ω * 1000000);
-
-    // Display colour for a player?
-    const bool PLAYER_MODE = false;
-    // const int PLAYER_COLOUR[3] = {0, 3200, 8000};
-    // const float PLAYER_TIME_SCALE = 0.97965f;
-    const int PLAYER_COLOUR[3] = {12000, 2250, 0};
-    const float PLAYER_TIME_SCALE = 0.9796f;
-
-    static int colour = 0;
-    static int colours[4][3] = {
-      {500, 0, 0},
-      {0, 300, 0},
-      {300, 0, 300},
-      {0, 300, 300},
-    };
-    bool going_forward =
-      fmodf(music_phase - last_music_phase + M_PI * 2, M_PI * 2) < M_PI;
-    if (!PLAYER_MODE && acc_ptr == 300 && going_forward
-      && floorf(last_music_phase / M_PI) != floorf(music_phase / M_PI)
-    ) {
-      colour = (colour + 1) % (sizeof colours / sizeof colours[0]);
-      TIM17->CCR1 = colours[colour][0] * 8;
-      TIM16->CCR1 = colours[colour][1] * 8;
-      TIM14->CCR1 = colours[colour][2] * 8;
-    }
-    if (going_forward) last_music_phase = music_phase;
-    /* if (going_forward) {
-      TIM17->CCR1 = 400; TIM16->CCR1 = TIM14->CCR1 = 0;
-    } else {
-      TIM14->CCR1 = 300; TIM16->CCR1 = TIM17->CCR1 = 0;
-    } */
-
-    static float start = -1;
-    static const float beat = 415.57f * 2 * PLAYER_TIME_SCALE;
-    if (start == -1) start = HAL_GetTick() - fmodf(HAL_GetTick(), beat);
-    if (PLAYER_MODE && acc_ptr == 300) {
-      float intensity = 0;
-      // `last_music_phase` in [0, 2pi), fastest positions at integral multiples of pi
-    /*
-      intensity = fabsf(fmodf(last_music_phase, M_PI) - M_PI / 2) / (M_PI / 2);
-      intensity = intensity * intensity;
-      intensity = intensity * intensity;
-    */
-      // float x = fmodf(last_music_phase, M_PI) / M_PI;
-      float x = ((HAL_GetTick() - start) / beat);
-      if (x >= 1) { x -= 1; start += beat; }
-      if (x >= 0.96)
-        intensity = (x - 0.96) * 10;
-      if (x < 0.15)
-        intensity = 1 - (x / 0.15) * (x / 0.15);
-      TIM17->CCR1 = PLAYER_COLOUR[0] * intensity;
-      TIM16->CCR1 = PLAYER_COLOUR[1] * intensity;
-      TIM14->CCR1 = PLAYER_COLOUR[2] * intensity;
-    }
-
-  /*
-  #define clamp(_x, _a, _b) ((_x) < (_a) ? (_a) : (_x) > (_b) ? (_b) : (_x))
-    TIM17->CCR1 = (HAL_GetTick() % 2048 <= 50 && (HAL_GetTick() / 6144) % 3 != 1) ? 300 : 0;
-    TIM16->CCR1 = (HAL_GetTick() % 2048 <= 50 && (HAL_GetTick() / 6144) % 3 != 0) ? 300 : 0;
-    TIM14->CCR1 = 0;
-  */
-
-    return (struct proceed_t){read_bmi270_and_update, 10};
-  }
-
   static const uint8_t nrf_ch[3] = { 2, 26, 80};
   static const uint8_t ble_ch[3] = {37, 38, 39};
   static uint8_t cur_ch = 2;
@@ -1195,6 +806,7 @@ int main()
   auto struct proceed_t tx_nRF_part_2();
   struct proceed_t tx_nRF_part_1() {
     cur_ch = (cur_ch + 1) % 3;
+    readings_timestamp++; // XXX: Remove soon
 
     uint8_t nRF_cmd_buf[33];
     uint8_t *buf = nRF_cmd_buf + 1;
@@ -1212,51 +824,10 @@ int main()
     buf[p++] = 0x74;
     buf[p++] = 0xD0;
     buf[p++] = 0xFD;
-    buf[p++] = 16;    // AD length
+    buf[p++] = 4;     // AD length
     buf[p++] = 0xFF;  // Type: Manufacturer Specific Data
-    buf[p++] = (music_phase_i >> 24) & 0xFF;
-    buf[p++] = (music_phase_i >> 16) & 0xFF;
-    buf[p++] = (music_phase_i >>  8) & 0xFF;
-    buf[p++] = (music_phase_i >>  0) & 0xFF;
-    buf[p++] = (uncertainty_i >> 24) & 0xFF;
-    buf[p++] = (uncertainty_i >> 16) & 0xFF;
-    buf[p++] = (uncertainty_i >>  8) & 0xFF;
-    buf[p++] = (uncertainty_i >>  0) & 0xFF;
-    buf[p++] = (omega_i >> 24) & 0xFF;
-    buf[p++] = (omega_i >> 16) & 0xFF;
-    buf[p++] = (omega_i >>  8) & 0xFF;
-    buf[p++] = (omega_i >>  0) & 0xFF;
     buf[p++] = readings_timestamp >> 8;
     buf[p++] = readings_timestamp & 0xFF;
-  /*
-    for (int i = 0; i < 3; i++) {
-      buf[p++] = mag_out[i] >> 8;
-      buf[p++] = mag_out[i] & 0xFF;
-    }
-    int16_t value_B = (int16_t)(ekf_x[3] * 10000);
-    buf[p++] = (value_B >> 8) & 0xFF;
-    buf[p++] = (value_B >> 0) & 0xFF;
-    int16_t value_A = (int16_t)(ekf_x[1] * 10000);
-    buf[p++] = (value_A >> 8) & 0xFF;
-    buf[p++] = (value_A >> 0) & 0xFF;
-    for (int i = 0; i < 3; i++) {
-      buf[p++] = acc_out[i] >> 8;
-      buf[p++] = acc_out[i] & 0xFF;
-    }
-    int16_t value_omega = (int16_t)(ekf_x[0] * 1000);
-    buf[p++] = (value_omega >> 8) & 0xFF;
-    buf[p++] = (value_omega >> 0) & 0xFF;
-    int16_t value_theta = (int16_t)(ekf_x[2] * 1000);
-    buf[p++] = (value_theta >> 8) & 0xFF;
-    buf[p++] = (value_theta >> 0) & 0xFF;
-    int16_t value_phi = (int16_t)(ekf_x[4] * 1000);
-    buf[p++] = (value_phi >> 8) & 0xFF;
-    buf[p++] = (value_phi >> 0) & 0xFF;
-    for (int i = 0; i < 3; i++) {
-      buf[p++] = gyr_out[i] >> 8;
-      buf[p++] = gyr_out[i] & 0xFF;
-    }
-  */
     static int idx = 0;
     buf[p++] = "Mlt"[(idx = (idx + 1) % 3)];
     buf[1] = p - 2;   // Payload length
@@ -1284,7 +855,6 @@ int main()
   };
   uint32_t cur_tick = HAL_GetTick();
   struct task_t task_pool[2] = {
-    {read_bmi270_and_update, cur_tick},
     {tx_nRF_part_1, cur_tick},
   };
   while (1) {
