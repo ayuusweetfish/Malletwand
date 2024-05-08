@@ -1,0 +1,30 @@
+{
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m0plus",
+    "extra_flags": "-DSTM32L0xx -DSTM32L011xx",
+    "f_cpu": "64000000L",
+    "mcu": "stm32l011f4",
+    "product_line": "STM32L011xx",
+    "variant": "STM32L0xx/L011F4"
+  },
+  "debug": {
+    "openocd_target": "stm32l0"
+  },
+  "frameworks": [
+    "stm32cube"
+  ],
+  "name": "STM32L011F4 (2k RAM, 16k Flash)",
+  "upload": {
+    "maximum_ram_size": 2048,
+    "maximum_size": 16384,
+    "protocol": "stlink",
+    "protocols": [
+      "cmsis-dap",
+      "serial",
+      "stlink"
+    ]
+  },
+  "url": "https://www.st.com/en/microcontrollers-microprocessors/stm32l011f4.html",
+  "vendor": "ST"
+}
