@@ -12,6 +12,7 @@
 \usepackage{stfloats}
 \usepackage{amsmath}
 \usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
 
 \begin{document}
 \pretolerance=1000
@@ -117,10 +118,10 @@ The board is fabricated as one, in order to ease soldering and debugging as we b
 \subsection{Estimation Algorithm}
 All processing is done on the microcontroller device. The microcontroller we used, STM32G0, is an Arm Cortex-M0+ processor without a dedicated FPU, but our complete algorithm runs well within its 64 MHz system clock with software floating-point arithmetic.
 
-The algorithm requires an initial reference orientation calibration, run once after assembly. An ensemble of filters is then employed to process the sensor signals. We introduce these steps respectively. To keep our description concise, we defer all of the mathematical details to Appendix~\ref{appendix:signal-processing}.
+The algorithm requires an initial reference frame calibration, run once after assembly. An ensemble of filters is then employed to process the sensor signals. We introduce these steps respectively. To keep our description concise, we defer all of the mathematical details to Appendix~\ref{appendix:signal-processing}.
 
-\subsubsection{Reference orientation calibration}
-After assembly, the orientation of the circuit board inside the bob should be compensated for.
+\subsubsection{Reference frame calibration}
+After assembly, the tilted orientation of the circuit board inside the bob should be compensated for.
 
 The calibration is initiated by a manually-issued wireless radio signal. The operator is then expected to hold the handle and let the bob stay stationary for a short while. Signals from the accelerometer are continuously monitored until they reach a sufficiently low deviation throughout a fixed time window of 3 seconds. This yields an axis vector that acts as the reference for future motion estimation from sensor readings which is saved in the persistent flash storage of the microcontroller. For details, please refer to Appendix~\ref{appendix:calib-ori}.
 
@@ -142,7 +143,7 @@ A confidence indicator is derived from the Frobenius norm of the estimation cova
 \end{figure*}
 
 \subsection{Design Overview}
-Our self-playing instrument is a robotic glockenspiel. We use a 3-key prototype for demonstrative purposes, but an extension of register does not call for the method to differ.
+Our self-playing instrument is a robotic glockenspiel. We use a 3-key prototype for demonstrative purposes, but an extension of register requires no change in implementation.
 
 The instrument is accompanied by two Malletwand controllers and can operate in both solo and co-operative mode. Signals received from the controllers drive the musical time in a preprogrammed piece, similar to a musical box. Co-operative mode is entered by two controllers being operated simultaneously, where each controller corresponds to one voice (part) indicated by colours of the lights. The music only progresses when the motion of the two are roughly in synchronisation.
 
@@ -203,7 +204,7 @@ We would like to thank the anonymous reviewers for their valuable feedback. We w
 We try to outline the mathematical derivations of the algorithms. For details, please refer to the source code.
 
 \subsection{Calibration}
-\subsubsection{Reference Orientation}
+\subsubsection{Reference frame}
 \label{appendix:calib-ori}
 An accelerometer reading is a 3-dimensional vector. When a sufficiently low variation of readings is achieved during calibration, their average vector is normalized and taken as the reference axis $\mathbf{u}$. We find a quaternion $\mathbf{q}$ that rotates this vector to the $+z$ unit vector, $\mathbf{z}^+ = \begin{bmatrix} 0 & 0 & 1 \end{bmatrix}^\mathsf{T}$. This is achieved by setting $\mathbf{q}_1 = \begin{bmatrix} \mathbf{u} \times \mathbf{z^+} & (1 + \mathbf{u} \cdot \mathbf{z^+}) \end{bmatrix}$ and $\mathbf{q} = \mathbf{q}_1 \mathbin{\mathop{/}} \lvert \mathbf{q}_1 \rvert$.
 
