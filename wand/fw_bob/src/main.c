@@ -58,6 +58,7 @@ int main()
   gpio_init.Mode = GPIO_MODE_AF_PP; // Pass over control to AF peripheral
   gpio_init.Alternate = GPIO_AF0_SWDIO;
   gpio_init.Pull = GPIO_PULLUP;
+  // XXX: No pull?
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &gpio_init);
 
@@ -68,6 +69,7 @@ int main()
   osc_init.PLL.PLLState = RCC_PLL_ON;
   osc_init.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   osc_init.PLL.PLLMUL = 2;
+  // FIXME: Use RCC_PLL_Multiplication_Factor constants (RCC_PLL_MUL4); also set PLLDIV (RCC_PLL_DIV2)
   HAL_RCC_OscConfig(&osc_init);
 
   RCC_ClkInitTypeDef clk_init = { 0 };
