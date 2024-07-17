@@ -58,18 +58,18 @@ int main()
   gpio_init.Mode = GPIO_MODE_AF_PP; // Pass over control to AF peripheral
   gpio_init.Alternate = GPIO_AF0_SWDIO;
   gpio_init.Pull = GPIO_PULLUP;
-  // XXX: No pull?
   gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &gpio_init);
 
+if (0) {
   // ======== Clocks ========
   RCC_OscInitTypeDef osc_init = { 0 };
   osc_init.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   osc_init.HSIState = RCC_HSI_ON;
   osc_init.PLL.PLLState = RCC_PLL_ON;
   osc_init.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  osc_init.PLL.PLLMUL = 2;
-  // FIXME: Use RCC_PLL_Multiplication_Factor constants (RCC_PLL_MUL4); also set PLLDIV (RCC_PLL_DIV2)
+  osc_init.PLL.PLLMUL = RCC_PLL_MUL4;
+  osc_init.PLL.PLLDIV = RCC_PLL_DIV2;
   HAL_RCC_OscConfig(&osc_init);
 
   RCC_ClkInitTypeDef clk_init = { 0 };
@@ -81,6 +81,7 @@ int main()
   clk_init.AHBCLKDivider = RCC_SYSCLK_DIV1;
   clk_init.APB1CLKDivider = RCC_HCLK_DIV1;
   HAL_RCC_ClockConfig(&clk_init, FLASH_LATENCY_0);
+}
 
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 

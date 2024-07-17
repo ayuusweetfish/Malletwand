@@ -1,5 +1,6 @@
 # ~/.platformio/packages/tool-openocd/bin/openocd -f interface/stlink.cfg -f target/stm32l0.cfg -d1
 # (cd ~/Downloads/stlink; build/Release/bin/st-info --probe)
+# (cd ~/Downloads/stlink; ./build/Release/bin/st-flash --connect-under-reset erase)
 
 # ~/.platformio/packages/tool-openocd/bin/openocd -f interface/stlink.cfg -f target/stm32l0.cfg -c 'init; reset halt; stm32l0x unlock 0; reset halt; exit'
 # https://github.com/stlink-org/stlink/issues/705
