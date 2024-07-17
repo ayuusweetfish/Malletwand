@@ -1,7 +1,15 @@
 # ~/.platformio/packages/tool-openocd/bin/openocd -f interface/stlink.cfg -f target/stm32l0.cfg -d1
 # (cd ~/Downloads/stlink; build/Release/bin/st-info --probe)
+
+# Chip erase:
 # (cd ~/Downloads/stlink; ./build/Release/bin/st-flash --connect-under-reset erase)
 
+# Flash:
+# (cd ~/Downloads/stlink; ./build/Release/bin/st-flash write $OLDPWD/.pio/build/dev/firmware.bin 0x08000000)
+# or:
+# ~/.platformio/packages/tool-openocd/bin/openocd -f interface/stlink.cfg -f target/stm32l0.cfg -c 'program {.pio/build/dev/firmware.elf} verify reset; shutdown'
+
+# Unlock write protect:
 # ~/.platformio/packages/tool-openocd/bin/openocd -f interface/stlink.cfg -f target/stm32l0.cfg -c 'init; reset halt; stm32l0x unlock 0; reset halt; exit'
 # https://github.com/stlink-org/stlink/issues/705
 
