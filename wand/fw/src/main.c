@@ -813,10 +813,13 @@ if (0) {
   HAL_HalfDuplex_Init(&uart2);
 
   while (1) {
-    uint8_t data[3] = { 0 };
-    HAL_StatusTypeDef result = HAL_UART_Receive(&uart2, data, 3, 2000);
-    swv_printf("received, result = %u, data = %02x %02x %02x\n",
-      result, data[0], data[1], data[2]);
+    uint8_t data[16] = { 0 };
+    uint16_t len;
+    HAL_StatusTypeDef result = HAL_UARTEx_ReceiveToIdle(&uart2, data, 16, &len, 2000);
+    swv_printf("received, result = %u, err code = %u, len = %u, data =",
+      result, (unsigned)uart2.ErrorCode, (unsigned)len);
+    for (uint16_t i = 0; i < len; i++) swv_printf(" %02x", data[i]);
+    swv_printf("\n");
   }
 
   // ======== Main loop ========

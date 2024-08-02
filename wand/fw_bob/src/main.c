@@ -597,9 +597,11 @@ if (0) {
   HAL_HalfDuplex_Init(&uart2);
 
   bool parity = 0;
+  uint8_t data[6] = {0};
   while (1) {
-    uint8_t data[3] = {0xAA, 0x55, 0x24};
-    HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 3, 1000);
+    // uint8_t data[3] = {0xAA, 0x55, 0x24};
+    data[0] = data[1] = data[2] = data[3] = data[4] = ++data[5];
+    HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 6, 1000);
     swv_printf("transmitted, result = %u\n", result);
     HAL_Delay((parity ^= 1) ? 200 : 1000);
   }
