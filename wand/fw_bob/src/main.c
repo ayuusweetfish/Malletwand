@@ -47,6 +47,7 @@ static void swv_printf(const char *restrict fmt, ...)
 #define swv_printf(...)
 #endif
 
+UART_HandleTypeDef uart2;
 SPI_HandleTypeDef spi1;
 
 static inline void spi1_transmit(const uint8_t *data, size_t size)
@@ -568,6 +569,40 @@ if (0) {
 }
 
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+
+  // ======== USART ========
+  // USART2_TX (PA9 AF4)
+  gpio_init = (GPIO_InitTypeDef){
+    .Pin = GPIO_PIN_9,
+    .Mode = GPIO_MODE_AF_OD,
+    .Alternate = GPIO_AF4_USART2,
+    .Speed = GPIO_SPEED_FREQ_HIGH,
+  };
+  HAL_GPIO_Init(GPIOA, &gpio_init);
+
+  __HAL_RCC_USART2_CLK_ENABLE();
+  uart2 = (UART_HandleTypeDef){
+    .Instance = USART2,
+    .Init = (UART_InitTypeDef){
+      .BaudRate = 2400,
+      .WordLength = UART_WORDLENGTH_8B,
+      .StopBits = UART_STOPBITS_1,
+      .Parity = UART_PARITY_NONE,
+      .Mode = UART_MODE_TX_RX,
+      .HwFlowCtl = UART_HWCONTROL_NONE,
+      .OverSampling = UART_OVERSAMPLING_16,
+      .OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE,
+    },
+  };
+  HAL_HalfDuplex_Init(&uart2);
+
+  bool parity = 0;
+  while (1) {
+    uint8_t data[3] = {0xAA, 0x55, 0x24};
+    HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 3, 1000);
+    swv_printf("transmitted, result = %u\n", result);
+    HAL_Delay((parity ^= 1) ? 200 : 1000);
+  }
 
   // ======== SPI ========
   // SPI1

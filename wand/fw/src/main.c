@@ -59,7 +59,7 @@ static void swv_printf(const char *restrict fmt, ...)
 #endif
 
 SPI_HandleTypeDef spi1 = { 0 }, spi2 = { 0 };
-TIM_HandleTypeDef tim14, tim16, tim17;
+UART_HandleTypeDef uart2;
 
 #pragma GCC optimize("O3")
 static inline void spi1_transmit(uint8_t *data, size_t size)
@@ -710,6 +710,7 @@ int main()
 
   // while (1) { }
 
+if (0) {
   // ======== SPI ========
   // SPI1
   // SPI1_SCK (PA1 AF0), SPI1_MOSI (PA2 AF0), SPI1_MISO (PA6 AF0)
@@ -782,10 +783,41 @@ int main()
     }
     HAL_Delay(50);
   }
+}
 
-  TIM14->CCR1 = 4000;
-  HAL_Delay(200);
-  TIM14->CCR1 = 0;
+  // ======== USART ========
+  // USART2_TX (PA2 AF1)
+  gpio_init = (GPIO_InitTypeDef){
+    .Pin = GPIO_PIN_2,
+    .Mode = GPIO_MODE_AF_OD,
+    .Alternate = GPIO_AF1_USART2,
+    .Speed = GPIO_SPEED_FREQ_HIGH,
+  };
+  HAL_GPIO_Init(GPIOA, &gpio_init);
+
+  __HAL_RCC_USART2_CLK_ENABLE();
+  uart2 = (UART_HandleTypeDef){
+    .Instance = USART2,
+    .Init = (UART_InitTypeDef){
+      .BaudRate = 2400,
+      .WordLength = UART_WORDLENGTH_8B,
+      .StopBits = UART_STOPBITS_1,
+      .Parity = UART_PARITY_NONE,
+      .Mode = UART_MODE_TX_RX,
+      .HwFlowCtl = UART_HWCONTROL_NONE,
+      .OverSampling = UART_OVERSAMPLING_16,
+      .OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE,
+      .ClockPrescaler = UART_PRESCALER_DIV1,
+    },
+  };
+  HAL_HalfDuplex_Init(&uart2);
+
+  while (1) {
+    uint8_t data[3] = { 0 };
+    HAL_StatusTypeDef result = HAL_UART_Receive(&uart2, data, 3, 2000);
+    swv_printf("received, result = %u, data = %02x %02x %02x\n",
+      result, data[0], data[1], data[2]);
+  }
 
   // ======== Main loop ========
 
