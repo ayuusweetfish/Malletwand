@@ -708,7 +708,7 @@ int main()
   HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 1);
   HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
 
-  while (1) { }
+  // while (1) { }
 
   // ======== SPI ========
   // SPI1
@@ -763,12 +763,13 @@ int main()
   // Read register 0x06 (RF_SETUP)
   for (int attempts = 1; attempts <= 5; attempts++) {
     HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_RESET);
+    // Read registers STATUS (default first byte output) and RF_SETUP (0x06)
     uint8_t spi_tx[2] = {0x06, 0x00};
     uint8_t spi_rx[2];
     HAL_SPI_TransmitReceive(&spi1, spi_tx, spi_rx, 2, 1000);
     HAL_GPIO_WritePin(nRF_CS_PORT, nRF_CS_PIN, GPIO_PIN_SET);
     swv_printf("nRF24L01+ received status %02x %02x\n", spi_rx[0], spi_rx[1]);
-    if (spi_rx[0] == 0x0E || spi_rx[1] == 0x06)
+    if (spi_rx[0] == 0x0E && spi_rx[1] == 0x06)
       break;
     if (attempts == 5) {
       // Error? Try a reset
