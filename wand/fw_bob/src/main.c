@@ -52,7 +52,8 @@ SPI_HandleTypeDef spi1;
 
 static inline void spi1_transmit(const uint8_t *data, size_t size)
 {
-  HAL_SPI_Transmit(&spi1, (uint8_t *)data, size, 1000); return;
+  HAL_SPI_Transmit(&spi1, (uint8_t *)data, size, 1000);
+  (void)SPI1->DR; // Clear Rx FIFO
 }
 static inline void spi1_receive(uint8_t *data, size_t size)
 {
@@ -66,6 +67,7 @@ static _release_inline uint8_t bmi270_read_reg(uint8_t reg)
   spi1_transmit(data, 1);
   spi1_receive(data, 2);
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1);
+  // swv_printf("read reg %02x: %02x %02x. error code %u\n", reg, data[0], data[1], spi1.ErrorCode);
   return data[1];
 }
 static _release_inline void bmi270_write_reg(uint8_t reg, uint8_t value)
@@ -597,6 +599,7 @@ if (0) {
   };
   HAL_HalfDuplex_Init(&uart2);
 
+if (0) {
   bool parity = 0;
   uint8_t data[16] = {0};
   while (1) {
@@ -618,6 +621,7 @@ if (0) {
     swv_printf("\n");
 */
   }
+}
 
   // ======== SPI ========
   // SPI1
@@ -644,7 +648,7 @@ if (0) {
     .Instance = SPI1,
     .Init = (SPI_InitTypeDef){
       .Mode = SPI_MODE_MASTER,
-      .Direction = SPI_DIRECTION_2LINES,
+      .Direction = SPI_DIRECTION_1LINE,
       .CLKPolarity = SPI_POLARITY_LOW,  // CPOL = 0
       .CLKPhase = SPI_PHASE_1EDGE,      // CPHA = 0
       .NSS = SPI_NSS_SOFT,
@@ -660,6 +664,7 @@ if (0) {
 
   // BMI270 set-up
 
+while (1) {
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0); HAL_Delay(1);
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1); HAL_Delay(1);
   bmi270_read_reg(0x00);
@@ -672,7 +677,10 @@ if (0) {
   bmi270_write_reg(0x6B, 0x01); // IF_CONF.spi3 = 1
   HAL_Delay(1);
   uint8_t chip_id = bmi270_read_reg(0x00);
-  swv_printf("BMI270 chip ID = 0x%02x\n", (int)chip_id);
+  swv_printf("BMI270 chip ID = 0x%02x\n", (int)chip_id);  // Should read 0x24
+
+  HAL_Delay(1000);
+}
 
   bmi270_write_reg(0x7C, 0x00);
   HAL_Delay(1);
