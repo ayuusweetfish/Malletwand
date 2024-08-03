@@ -721,11 +721,11 @@ int main()
 
   // while (1) { }
 
-if (0) {
+if (1) {
   // ======== SPI ========
   // SPI1
-  // SPI1_SCK (PA1 AF0), SPI1_MOSI (PA2 AF0), SPI1_MISO (PA6 AF0)
-  gpio_init.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_6;
+  // SPI1_SCK (PA5 AF0), SPI1_MOSI (PA7 AF0), SPI1_MISO (PA6 AF0)
+  gpio_init.Pin = GPIO_PIN_5 | GPIO_PIN_7 | GPIO_PIN_6;
   gpio_init.Mode = GPIO_MODE_AF_PP;
   gpio_init.Alternate = GPIO_AF0_SPI1;
   gpio_init.Pull = GPIO_NOPULL;
@@ -796,6 +796,7 @@ if (0) {
   }
 }
 
+if (0) {
   // ======== USART ========
   // USART2_TX (PA2 AF1)
   gpio_init = (GPIO_InitTypeDef){
@@ -841,6 +842,7 @@ if (0) {
     result = HAL_UART_Transmit(&uart2, data, 4, 1000);
     swv_printf("transmitted, result = %u\n", result);
   }
+}
 
   // ======== Main loop ========
 
@@ -910,14 +912,14 @@ if (0) {
     uint32_t next_tick;
   };
   uint32_t cur_tick = HAL_GetTick();
-  struct task_t task_pool[2] = {
+  struct task_t task_pool[] = {
     {tx_nRF_part_1, cur_tick},
   };
   while (1) {
     uint32_t cur_tick = HAL_GetTick();
     int32_t soonest_diff = INT32_MAX;
     int soonest_index = -1;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < sizeof task_pool / sizeof task_pool[0]; i++) {
       int32_t diff = (int32_t)(task_pool[i].next_tick - cur_tick);
       if (diff < soonest_diff) {
         soonest_diff = diff;
