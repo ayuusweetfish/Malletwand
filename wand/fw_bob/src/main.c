@@ -52,13 +52,52 @@ SPI_HandleTypeDef spi1;
 
 static inline void spi1_transmit(const uint8_t *data, size_t size)
 {
+/*
   HAL_SPI_Transmit(&spi1, (uint8_t *)data, size, 1000);
-  (void)SPI1->DR; // Clear Rx FIFO
+  // Clear Rx FIFO
+  while (SPI1->CR2 & SPI_FLAG_RXNE) (void)SPI1->DR;
+*/
+  __HAL_SPI_DISABLE(&spi1);
+  SPI_1LINE_TX(&spi1);
+  __HAL_SPI_ENABLE(&spi1);
+
+  for (size_t i = 0; i < size; i++) {
+    while (!(SPI1->SR & SPI_SR_TXE)) { }
+    SPI1->DR = data[i];
+  }
+
+  while (!(SPI1->SR & SPI_SR_TXE)) { }
+  while ((SPI1->SR & SPI_SR_BSY)) { }
+  // Clear OVR flag
+  (void)SPI1->DR;
+  (void)SPI1->SR;
+
+  __HAL_SPI_DISABLE(&spi1);
 }
 static inline void spi1_receive(uint8_t *data, size_t size)
 {
+/*
   for (int i = 0; i < size; i++) data[i] = 0xAA;
   HAL_SPI_Receive(&spi1, data, size, 1000);
+*/
+  __HAL_SPI_DISABLE(&spi1);
+  SPI_1LINE_RX(&spi1);
+  __HAL_SPI_ENABLE(&spi1);
+
+  for (size_t i = 0; i < size; i++) {
+    while (!(SPI1->SR & SPI_SR_TXE)) { }
+    SPI1->DR = 0;
+    while (!(SPI1->SR & SPI_SR_RXNE)) { }
+    data[i] = SPI1->DR;
+  }
+
+  while (!(SPI1->SR & SPI_SR_TXE)) { }
+  while ((SPI1->SR & SPI_SR_BSY)) { }
+  // Clear OVR flag
+  (void)SPI1->DR;
+  (void)SPI1->SR;
+
+  __HAL_SPI_DISABLE(&spi1);
 }
 static _release_inline uint8_t bmi270_read_reg(uint8_t reg)
 {
@@ -531,6 +570,12 @@ static const uint8_t bmi270_config_file[] = {
   0x2e, 0x00, 0xc1
 };
 
+static inline int16_t satneg16(int16_t x)
+{
+  if (x == INT16_MIN) return INT16_MAX;
+  return -x;
+}
+
 int main()
 {
   HAL_Init();
@@ -583,6 +628,7 @@ if (0) {
   };
   HAL_GPIO_Init(GPIOA, &gpio_init);
 
+if (0) {
   __HAL_RCC_USART2_CLK_ENABLE();
   uart2 = (UART_HandleTypeDef){
     .Instance = USART2,
@@ -599,7 +645,6 @@ if (0) {
   };
   HAL_HalfDuplex_Init(&uart2);
 
-if (0) {
   bool parity = 0;
   uint8_t data[16] = {0};
   while (1) {
@@ -664,7 +709,6 @@ if (0) {
 
   // BMI270 set-up
 
-while (1) {
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 0); HAL_Delay(1);
   HAL_GPIO_WritePin(BMI_CS_PORT, BMI_CS_PIN, 1); HAL_Delay(1);
   bmi270_read_reg(0x00);
@@ -679,8 +723,7 @@ while (1) {
   uint8_t chip_id = bmi270_read_reg(0x00);
   swv_printf("BMI270 chip ID = 0x%02x\n", (int)chip_id);  // Should read 0x24
 
-  HAL_Delay(1000);
-}
+  // while (1) { }
 
   bmi270_write_reg(0x7C, 0x00);
   HAL_Delay(1);
@@ -726,20 +769,39 @@ while (1) {
   bmi270_write_reg(0x4E, 0x1D);
   HAL_Delay(1);
 
+  bmi270_write_reg(0x68, 0x02);   // AUX_IF_TRIM (10 kΩ)
   bmi270_write_reg(0x7D, 0b0111); // PWR_CTRL.aux_en = 1
   bmi270_write_reg(0x4D, 0x00);   // AUX_RD_ADDR
   bmi270_write_reg(0x4C, 0b00001111); // AUX_IF_CONF.aux_manual_en = 0
   HAL_Delay(10);
 
-  while (0) {
-    uint8_t data[32] = {1, 2, 3, 4, 5, 6, 7, 8};
-    bmi270_read_burst(0x04, data, 8);
-    uint16_t aux_x = ((uint16_t)data[0] << 8) | data[1];
-    uint16_t aux_y = ((uint16_t)data[2] << 8) | data[3];
-    uint16_t aux_z = ((uint16_t)data[4] << 8) | data[5];
-    uint16_t aux_r = ((uint16_t)data[6] << 8) | data[7];
-    swv_printf("aux = %04x %04x %04x %04x\n",
-      (unsigned)aux_x, (unsigned)aux_y, (unsigned)aux_z, (unsigned)aux_r);
+  while (1) {
+    int16_t mag_out[3], acc_out[3], gyr_out[3];
+    uint8_t data[24];
+    bmi270_read_burst(0x04, data, 23);
+    for (int i = 0; i < 23; i++) swv_printf("%02x%c", (int)data[i], i == 22 ? '\n' : ' ');
+    // Assumes little endian
+    // TODO: Adapt orientation to updated board
+    mag_out[2] = satneg16(((int16_t)((uint16_t)data[0] << 8) | data[1]) + 0x8000);
+    mag_out[0] =         (((int16_t)((uint16_t)data[2] << 8) | data[3]) + 0x8000);
+    mag_out[1] = satneg16(((int16_t)((uint16_t)data[4] << 8) | data[5]) + 0x8000);
+    acc_out[2] =          *( int16_t *)(data +  8);
+    acc_out[0] = satneg16(*( int16_t *)(data + 10));
+    acc_out[1] = satneg16(*( int16_t *)(data + 12));
+    gyr_out[2] =          *( int16_t *)(data + 14);
+    gyr_out[0] = satneg16(*( int16_t *)(data + 16));
+    gyr_out[1] = satneg16(*( int16_t *)(data + 18));
+    data[23] = 0;
+    uint32_t time = *(uint32_t *)(data + 20);
+    // Gyroscope calibration
+    int8_t gyr_cas = ((int8_t)bmi270_read_reg(0x3C) << 1) >> 1;
+    gyr_out[0] -= ((uint32_t)gyr_cas * gyr_out[2]) >> 9;
+    // XXX: magnetic sensor reads noisy data?
+    if (0) swv_printf("time = %6u | acc = %6d %6d %6d | gyr = %6d %6d %6d | mag = %6d %6d %6d\n",
+      time,
+      (int)acc_out[0], (int)acc_out[1], (int)acc_out[2],
+      (int)gyr_out[0], (int)gyr_out[1], (int)gyr_out[2],
+      (int)mag_out[0], (int)mag_out[1], (int)mag_out[2]);
     HAL_Delay(10);
   }
 
