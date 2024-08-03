@@ -690,7 +690,7 @@ int main()
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 
   gpio_init.Pull = GPIO_NOPULL;
-  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+  gpio_init.Speed = GPIO_SPEED_FREQ_LOW;
   gpio_init.Pin = VDDSUB_G_PIN;
   gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
   HAL_GPIO_Init(VDDSUB_G_PORT, &gpio_init);
@@ -708,6 +708,16 @@ int main()
 */
   HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 1);
   HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
+
+/*
+  // FIXME: Rising edge corrupts program execution?
+  bool parity = 0;
+  while (1) {
+    HAL_Delay(parity == 0 ? 1000 : 2000); HAL_GPIO_WritePin(VDDSUB_G_PORT, VDDSUB_G_PIN, parity ^= 1);
+    // HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 1);
+    // HAL_Delay(50); HAL_GPIO_WritePin(MOTOR_G_PORT, MOTOR_G_PIN, 0);
+  }
+*/
 
   // while (1) { }
 
@@ -807,7 +817,7 @@ if (0) {
       .Mode = UART_MODE_TX_RX,
       .HwFlowCtl = UART_HWCONTROL_NONE,
       .OverSampling = UART_OVERSAMPLING_16,
-      .OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE,
+      .OneBitSampling = UART_ONE_BIT_SAMPLE_ENABLE,
       .ClockPrescaler = UART_PRESCALER_DIV1,
     },
   };
@@ -815,12 +825,21 @@ if (0) {
 
   while (1) {
     uint8_t data[16] = { 0 };
+    HAL_StatusTypeDef result;
+
     uint16_t len;
-    HAL_StatusTypeDef result = HAL_UARTEx_ReceiveToIdle(&uart2, data, 16, &len, 2000);
+    result = HAL_UARTEx_ReceiveToIdle(&uart2, data, 16, &len, 5000);
     swv_printf("received, result = %u, err code = %u, len = %u, data =",
       result, (unsigned)uart2.ErrorCode, (unsigned)len);
     for (uint16_t i = 0; i < len; i++) swv_printf(" %02x", data[i]);
     swv_printf("\n");
+
+    HAL_Delay(2);
+
+    data[0] = 0xAA;
+    data[1] = data[5];
+    result = HAL_UART_Transmit(&uart2, data, 4, 1000);
+    swv_printf("transmitted, result = %u\n", result);
   }
 
   // ======== Main loop ========

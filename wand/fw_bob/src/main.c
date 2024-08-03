@@ -592,15 +592,14 @@ if (0) {
       .Mode = UART_MODE_TX_RX,
       .HwFlowCtl = UART_HWCONTROL_NONE,
       .OverSampling = UART_OVERSAMPLING_16,
-      .OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE,
+      .OneBitSampling = UART_ONE_BIT_SAMPLE_ENABLE,
     },
   };
   HAL_HalfDuplex_Init(&uart2);
 
   bool parity = 0;
-  uint8_t data[6] = {0};
+  uint8_t data[16] = {0};
   while (1) {
-    // uint8_t data[3] = {0xAA, 0x55, 0x24};
     data[0] = data[1] = data[2] = data[3] = data[4] = ++data[5];
     data[0] = 0x55;
     data[1] = 0xAA;
@@ -609,6 +608,15 @@ if (0) {
     HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 6, 1000);
     swv_printf("transmitted, result = %u\n", result);
     HAL_Delay((parity ^= 1) ? 200 : 1000);
+
+/*
+    uint16_t len;
+    result = HAL_UARTEx_ReceiveToIdle(&uart2, data, 16, &len, 2000);
+    swv_printf("received, result = %u, err code = %u, len = %u, data =",
+      result, (unsigned)uart2.ErrorCode, (unsigned)len);
+    for (uint16_t i = 0; i < len; i++) swv_printf(" %02x", data[i]);
+    swv_printf("\n");
+*/
   }
 
   // ======== SPI ========
