@@ -668,6 +668,7 @@ int main()
   RCC_OscInitTypeDef osc_init = { 0 };
   osc_init.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   osc_init.HSIState = RCC_HSI_ON;
+  osc_init.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   osc_init.PLL.PLLState = RCC_PLL_ON;
   osc_init.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   osc_init.PLL.PLLM = RCC_PLLM_DIV1;  // VCO input 16 MHz (2.66 ~ 16 MHz)
@@ -799,7 +800,7 @@ if (0) {
   uart2 = (UART_HandleTypeDef){
     .Instance = USART2,
     .Init = (UART_InitTypeDef){
-      .BaudRate = 2400,
+      .BaudRate = 115200,
       .WordLength = UART_WORDLENGTH_8B,
       .StopBits = UART_STOPBITS_1,
       .Parity = UART_PARITY_NONE,

@@ -551,6 +551,7 @@ if (0) {
   RCC_OscInitTypeDef osc_init = { 0 };
   osc_init.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   osc_init.HSIState = RCC_HSI_ON;
+  osc_init.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   osc_init.PLL.PLLState = RCC_PLL_ON;
   osc_init.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   osc_init.PLL.PLLMUL = RCC_PLL_MUL4;
@@ -584,7 +585,7 @@ if (0) {
   uart2 = (UART_HandleTypeDef){
     .Instance = USART2,
     .Init = (UART_InitTypeDef){
-      .BaudRate = 2400,
+      .BaudRate = 115200,
       .WordLength = UART_WORDLENGTH_8B,
       .StopBits = UART_STOPBITS_1,
       .Parity = UART_PARITY_NONE,
@@ -601,6 +602,10 @@ if (0) {
   while (1) {
     // uint8_t data[3] = {0xAA, 0x55, 0x24};
     data[0] = data[1] = data[2] = data[3] = data[4] = ++data[5];
+    data[0] = 0x55;
+    data[1] = 0xAA;
+    data[2] = 0x00;
+    data[3] = 0xff;
     HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 6, 1000);
     swv_printf("transmitted, result = %u\n", result);
     HAL_Delay((parity ^= 1) ? 200 : 1000);
