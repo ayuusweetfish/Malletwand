@@ -634,7 +634,7 @@ static inline int16_t satneg16(int16_t x)
   return -x;
 }
 
-static uint8_t uart2_rx_buf[16];
+static uint8_t uart2_rx_buf[6] = { 0 };
 static bool uart2_rx_flag = false;
 
 int main()
@@ -689,7 +689,6 @@ if (0) {
   };
   HAL_GPIO_Init(GPIOA, &gpio_init);
 
-if (1) {
   __HAL_RCC_USART2_CLK_ENABLE();
   uart2 = (UART_HandleTypeDef){
     .Instance = USART2,
@@ -708,38 +707,6 @@ if (1) {
 
   HAL_NVIC_EnableIRQ(USART2_IRQn);
   HAL_NVIC_SetPriority(USART2_IRQn, 1, 0);
-
-  uart2_rx_flag = true;
-
-  bool parity = 0;
-  uint8_t data[16] = {0};
-  // for (int i = 0; i < 10; i++) {
-  while (1) {
-    data[0] = 0x55;
-    data[1] = 0xAA;
-    data[2] = 0x00;
-    data[3] = 0xff;
-    data[4] = uart2_rx_buf[3];
-    data[5]++;
-    HAL_HalfDuplex_EnableTransmitter(&uart2);
-    HAL_UART_Transmit(&uart2, data, 6, 1000);
-    HAL_HalfDuplex_EnableReceiver(&uart2);
-
-    if (uart2_rx_flag) {
-      // swv_printf("rx! %02x %02x %02x %02x - ",
-      //   uart2_rx_buf[0], uart2_rx_buf[1], uart2_rx_buf[2], uart2_rx_buf[3]);
-      uart2_rx_flag = false;
-      HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 4);
-
-      static int rx_count = 0;
-      if (++rx_count == 10) swv_printf("ok!\n");
-    }
-
-    // swv_printf("transmitted data %02x\n", data[4]);
-
-    HAL_Delay((parity ^= 1) ? 200 : 1000);
-  }
-}
 
   // ======== SPI ========
   // SPI1
@@ -848,6 +815,9 @@ if (1) {
   bmi270_write_reg(0x4C, 0b00001111); // AUX_IF_CONF.aux_manual_en = 0
   HAL_Delay(10);
 
+  uart2_rx_flag = true;
+  uint16_t rgb_state[3] = { 0 };
+
   while (1) {
     int16_t mag_out[3], acc_out[3], gyr_out[3];
     uint8_t data[24];
@@ -875,6 +845,39 @@ if (1) {
       (int)acc_out[0], (int)acc_out[1], (int)acc_out[2],
       (int)gyr_out[0], (int)gyr_out[1], (int)gyr_out[2],
       (int)mag_out[0], (int)mag_out[1], (int)mag_out[2]);
+
+    // Transmit through UART
+    *(uint16_t *)(data +  0) = mag_out[0];
+    *(uint16_t *)(data +  2) = mag_out[1];
+    *(uint16_t *)(data +  4) = mag_out[2];
+    *(uint16_t *)(data +  6) = acc_out[0];
+    *(uint16_t *)(data +  8) = acc_out[1];
+    *(uint16_t *)(data + 10) = acc_out[2];
+    *(uint16_t *)(data + 12) = gyr_out[0];
+    *(uint16_t *)(data + 14) = gyr_out[1];
+    *(uint16_t *)(data + 16) = gyr_out[2];
+    *(uint16_t *)(data + 18) = rgb_state[0];
+    *(uint16_t *)(data + 20) = rgb_state[1];
+    *(uint16_t *)(data + 22) = rgb_state[2];
+
+    HAL_HalfDuplex_EnableTransmitter(&uart2);
+    HAL_UART_Transmit(&uart2, data, 24, 1000);
+    HAL_HalfDuplex_EnableReceiver(&uart2);
+
+    if (uart2_rx_flag) {
+      // swv_printf("rx! %02x %02x %02x %02x - ",
+      //   uart2_rx_buf[0], uart2_rx_buf[1], uart2_rx_buf[2], uart2_rx_buf[3]);
+      rgb_state[0] = *(uint16_t *)(uart2_rx_buf + 0);
+      rgb_state[1] = *(uint16_t *)(uart2_rx_buf + 2);
+      rgb_state[2] = *(uint16_t *)(uart2_rx_buf + 4);
+
+      uart2_rx_flag = false;
+      HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 6);
+
+      static int rx_count = 0;
+      if (++rx_count == 10) swv_printf("ok!\n");
+    }
+
     HAL_Delay(10);
   }
 

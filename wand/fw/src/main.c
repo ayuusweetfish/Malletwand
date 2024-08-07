@@ -647,7 +647,7 @@ static inline float filter_update(
   return f->i2;
 }
 
-static uint8_t uart2_rx_buf[16] = { 0 };
+static uint8_t uart2_rx_buf[24] = { 0 };
 static bool uart2_rx_flag = false;
 
 int main()
@@ -831,7 +831,7 @@ if (1) {
   HAL_NVIC_SetPriority(USART2_IRQn, 1, 0);
 
   HAL_HalfDuplex_EnableReceiver(&uart2);
-  HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 6);
+  HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 24);
 
   while (1) {
     if (!uart2_rx_flag) {
@@ -841,40 +841,20 @@ if (1) {
     uart2_rx_flag = false;
 
     HAL_Delay(2);
-    uint8_t data[4];
+    uint8_t data[6];
     data[0] = 0x01;
     data[1] = 0x02;
     data[2] = 0x03;
     data[3] = uart2_rx_buf[5];
+    data[4] = 0xAA;
+    data[5] = 0x55;
     HAL_HalfDuplex_EnableTransmitter(&uart2);
-    HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 4, 1000);
+    HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 6, 1000);
     // swv_printf("transmitted, result = %u\n", result);
 
     HAL_HalfDuplex_EnableReceiver(&uart2);
-    HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 6);
+    HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 24);
   }
-
-  while (0) {
-    uint8_t data[16] = { 0 };
-    HAL_StatusTypeDef result;
-
-    uint16_t len;
-    result = HAL_UARTEx_ReceiveToIdle(&uart2, data, 16, &len, 5000);
-    swv_printf("received, result = %u, err code = %u, len = %u, data =",
-      result, (unsigned)uart2.ErrorCode, (unsigned)len);
-    for (uint16_t i = 0; i < len; i++) swv_printf(" %02x", data[i]);
-    swv_printf("\n");
-
-    HAL_Delay(2);
-
-/*
-    data[0] = 0xAA;
-    data[1] = data[5];
-    result = HAL_UART_Transmit(&uart2, data, 4, 1000);
-    swv_printf("transmitted, result = %u\n", result);
-*/
-  }
-}
 
   // ======== Main loop ========
 
@@ -981,9 +961,9 @@ void USART2_IRQHandler()
 }
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *_uart2)
 {
-  swv_printf("rx! %02x %02x %02x %02x %02x %02x\n",
-    uart2_rx_buf[0], uart2_rx_buf[1], uart2_rx_buf[2],
-    uart2_rx_buf[3], uart2_rx_buf[4], uart2_rx_buf[5]);
+  swv_printf("rx!");
+  for (int i = 0; i < 24; i++) swv_printf(" %02x", uart2_rx_buf[i]);
+  swv_printf("\n");
   uart2_rx_flag = true;
 }
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *_uart2)
