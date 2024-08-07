@@ -799,7 +799,6 @@ if (1) {
   }
 }
 
-if (1) {
   // ======== USART ========
   // USART2_TX (PA2 AF1)
   gpio_init = (GPIO_InitTypeDef){
@@ -833,14 +832,39 @@ if (1) {
   HAL_HalfDuplex_EnableReceiver(&uart2);
   HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 24);
 
-  while (1) {
+  // ======== Main loop ========
+
+  struct proceed_t {
+    struct proceed_t (*fn)(void);
+    int wait;
+  };
+
+  int16_t mag_out[3], acc_out[3], gyr_out[3];
+  int16_t rgb_state[3] = { 0 };
+  int32_t music_phase_i;
+  int32_t uncertainty_i;
+  int32_t omega_i;
+  int16_t readings_timestamp = 0;
+
+  struct proceed_t uart_comm() {
     if (!uart2_rx_flag) {
-      HAL_Delay(1);
-      continue;
+      return (struct proceed_t){uart_comm, 1};
     }
     uart2_rx_flag = false;
 
-    HAL_Delay(2);
+    mag_out[0] = *(uint16_t *)(uart2_rx_buf +  0);
+    mag_out[1] = *(uint16_t *)(uart2_rx_buf +  2);
+    mag_out[2] = *(uint16_t *)(uart2_rx_buf +  4);
+    acc_out[0] = *(uint16_t *)(uart2_rx_buf +  6);
+    acc_out[1] = *(uint16_t *)(uart2_rx_buf +  8);
+    acc_out[2] = *(uint16_t *)(uart2_rx_buf + 10);
+    gyr_out[0] = *(uint16_t *)(uart2_rx_buf + 12);
+    gyr_out[1] = *(uint16_t *)(uart2_rx_buf + 14);
+    gyr_out[2] = *(uint16_t *)(uart2_rx_buf + 16);
+    rgb_state[0] = *(uint16_t *)(uart2_rx_buf + 18);
+    rgb_state[1] = *(uint16_t *)(uart2_rx_buf + 20);
+    rgb_state[2] = *(uint16_t *)(uart2_rx_buf + 22);
+
     uint8_t data[6];
     data[0] = 0x01;
     data[1] = 0x02;
@@ -850,24 +874,12 @@ if (1) {
     data[5] = 0x55;
     HAL_HalfDuplex_EnableTransmitter(&uart2);
     HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 6, 1000);
-    // swv_printf("transmitted, result = %u\n", result);
 
     HAL_HalfDuplex_EnableReceiver(&uart2);
     HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 24);
+
+    return (struct proceed_t){uart_comm, 1};
   }
-
-  // ======== Main loop ========
-
-  struct proceed_t {
-    struct proceed_t (*fn)(void);
-    int wait;
-  };
-
-  int16_t mag_out[3], acc_out[3], gyr_out[3];
-  int32_t music_phase_i;
-  int32_t uncertainty_i;
-  int32_t omega_i;
-  int16_t readings_timestamp = 0;
 
   static const uint8_t nrf_ch[3] = { 2, 26, 80};
   static const uint8_t ble_ch[3] = {37, 38, 39};
@@ -894,8 +906,12 @@ if (1) {
     buf[p++] = 0x74;
     buf[p++] = 0xD0;
     buf[p++] = 0xFD;
-    buf[p++] = 4;     // AD length
+    buf[p++] = 8;     // AD length
     buf[p++] = 0xFF;  // Type: Manufacturer Specific Data
+    buf[p++] = rgb_state[2] >> 8;
+    buf[p++] = rgb_state[2] & 0xff;
+    buf[p++] = acc_out[0] >> 8;
+    buf[p++] = acc_out[0] & 0xff;
     buf[p++] = readings_timestamp >> 8;
     buf[p++] = readings_timestamp & 0xFF;
     static int idx = 0;
@@ -925,6 +941,7 @@ if (1) {
   };
   uint32_t cur_tick = HAL_GetTick();
   struct task_t task_pool[] = {
+    {uart_comm, cur_tick},
     {tx_nRF_part_1, cur_tick},
   };
   while (1) {
@@ -961,9 +978,11 @@ void USART2_IRQHandler()
 }
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *_uart2)
 {
+/*
   swv_printf("rx!");
   for (int i = 0; i < 24; i++) swv_printf(" %02x", uart2_rx_buf[i]);
   swv_printf("\n");
+*/
   uart2_rx_flag = true;
 }
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *_uart2)
