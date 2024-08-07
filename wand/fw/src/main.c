@@ -647,6 +647,9 @@ static inline float filter_update(
   return f->i2;
 }
 
+static uint8_t uart2_rx_buf[16] = { 0 };
+static bool uart2_rx_flag = false;
+
 int main()
 {
   HAL_Init();
@@ -796,7 +799,7 @@ if (1) {
   }
 }
 
-if (0) {
+if (1) {
   // ======== USART ========
   // USART2_TX (PA2 AF1)
   gpio_init = (GPIO_InitTypeDef){
@@ -824,7 +827,34 @@ if (0) {
   };
   HAL_HalfDuplex_Init(&uart2);
 
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
+  HAL_NVIC_SetPriority(USART2_IRQn, 1, 0);
+
+  HAL_HalfDuplex_EnableReceiver(&uart2);
+  HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 6);
+
   while (1) {
+    if (!uart2_rx_flag) {
+      HAL_Delay(1);
+      continue;
+    }
+    uart2_rx_flag = false;
+
+    HAL_Delay(2);
+    uint8_t data[4];
+    data[0] = 0x01;
+    data[1] = 0x02;
+    data[2] = 0x03;
+    data[3] = uart2_rx_buf[5];
+    HAL_HalfDuplex_EnableTransmitter(&uart2);
+    HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 4, 1000);
+    // swv_printf("transmitted, result = %u\n", result);
+
+    HAL_HalfDuplex_EnableReceiver(&uart2);
+    HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 6);
+  }
+
+  while (0) {
     uint8_t data[16] = { 0 };
     HAL_StatusTypeDef result;
 
@@ -837,10 +867,12 @@ if (0) {
 
     HAL_Delay(2);
 
+/*
     data[0] = 0xAA;
     data[1] = data[5];
     result = HAL_UART_Transmit(&uart2, data, 4, 1000);
     swv_printf("transmitted, result = %u\n", result);
+*/
   }
 }
 
@@ -943,6 +975,22 @@ void SysTick_Handler()
   HAL_SYSTICK_IRQHandler();
 }
 
+void USART2_IRQHandler()
+{
+  HAL_UART_IRQHandler(&uart2);
+}
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *_uart2)
+{
+  swv_printf("rx! %02x %02x %02x %02x %02x %02x\n",
+    uart2_rx_buf[0], uart2_rx_buf[1], uart2_rx_buf[2],
+    uart2_rx_buf[3], uart2_rx_buf[4], uart2_rx_buf[5]);
+  uart2_rx_flag = true;
+}
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *_uart2)
+{
+  swv_printf("error! %u\n", uart2.ErrorCode);
+}
+
 void NMI_Handler() { while (1) { } }
 void HardFault_Handler() { while (1) { } }
 void SVC_Handler() { while (1) { } }
@@ -969,4 +1017,3 @@ void I2C2_IRQHandler() { while (1) { } }
 void SPI1_IRQHandler() { while (1) { } }
 void SPI2_IRQHandler() { while (1) { } }
 void USART1_IRQHandler() { while (1) { } }
-void USART2_IRQHandler() { while (1) { } }

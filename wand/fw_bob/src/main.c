@@ -576,6 +576,9 @@ static inline int16_t satneg16(int16_t x)
   return -x;
 }
 
+static uint8_t uart2_rx_buf[16];
+static bool uart2_rx_flag = false;
+
 int main()
 {
   HAL_Init();
@@ -628,7 +631,7 @@ if (0) {
   };
   HAL_GPIO_Init(GPIOA, &gpio_init);
 
-if (0) {
+if (1) {
   __HAL_RCC_USART2_CLK_ENABLE();
   uart2 = (UART_HandleTypeDef){
     .Instance = USART2,
@@ -645,26 +648,37 @@ if (0) {
   };
   HAL_HalfDuplex_Init(&uart2);
 
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
+  HAL_NVIC_SetPriority(USART2_IRQn, 1, 0);
+
+  uart2_rx_flag = true;
+
   bool parity = 0;
   uint8_t data[16] = {0};
   while (1) {
-    data[0] = data[1] = data[2] = data[3] = data[4] = ++data[5];
     data[0] = 0x55;
     data[1] = 0xAA;
     data[2] = 0x00;
     data[3] = 0xff;
-    HAL_StatusTypeDef result = HAL_UART_Transmit(&uart2, data, 6, 1000);
-    swv_printf("transmitted, result = %u\n", result);
-    HAL_Delay((parity ^= 1) ? 200 : 1000);
+    data[4] = uart2_rx_buf[3];
+    data[5]++;
+    HAL_HalfDuplex_EnableTransmitter(&uart2);
+    HAL_UART_Transmit(&uart2, data, 6, 1000);
+    HAL_HalfDuplex_EnableReceiver(&uart2);
 
-/*
-    uint16_t len;
-    result = HAL_UARTEx_ReceiveToIdle(&uart2, data, 16, &len, 2000);
-    swv_printf("received, result = %u, err code = %u, len = %u, data =",
-      result, (unsigned)uart2.ErrorCode, (unsigned)len);
-    for (uint16_t i = 0; i < len; i++) swv_printf(" %02x", data[i]);
-    swv_printf("\n");
-*/
+    if (uart2_rx_flag) {
+      // swv_printf("rx! %02x %02x %02x %02x - ",
+      //   uart2_rx_buf[0], uart2_rx_buf[1], uart2_rx_buf[2], uart2_rx_buf[3]);
+      uart2_rx_flag = false;
+      HAL_UART_Receive_IT(&uart2, uart2_rx_buf, 4);
+
+      static int rx_count = 0;
+      if (++rx_count == 10) swv_printf("ok!\n");
+    }
+
+    // swv_printf("transmitted data %02x\n", data[4]);
+
+    HAL_Delay((parity ^= 1) ? 200 : 1000);
   }
 }
 
@@ -822,12 +836,30 @@ void SysTick_Handler()
   HAL_SYSTICK_IRQHandler();
 }
 
+void USART2_IRQHandler()
+{
+  HAL_UART_IRQHandler(&uart2);
+}
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *_uart2)
+{
+/*
+  swv_printf("rx! %02x %02x %02x %02x\n",
+    uart2_rx_buf[0], uart2_rx_buf[1], uart2_rx_buf[2], uart2_rx_buf[3]);
+*/
+  uart2_rx_flag = true;
+}
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *_uart2)
+{
+  swv_printf("error! %u\n", uart2.ErrorCode);
+}
+
 void NMI_Handler() { while (1) { } }
 void HardFault_Handler() { while (1) { } }
 void SVC_Handler() { while (1) { } }
 void PendSV_Handler() { while (1) { } }
 void WWDG_IRQHandler() { while (1) { } }
-void RTC_TAMP_IRQHandler() { while (1) { } }
+void PVD_IRQHandler() { while (1) { } }
+void RTC_IRQHandler() { while (1) { } }
 void FLASH_IRQHandler() { while (1) { } }
 void RCC_IRQHandler() { while (1) { } }
 void EXTI0_1_IRQHandler() { while (1) { } }
@@ -835,17 +867,11 @@ void EXTI2_3_IRQHandler() { while (1) { } }
 void EXTI4_15_IRQHandler() { while (1) { } }
 void DMA1_Channel1_IRQHandler() { while (1) { } }
 void DMA1_Channel2_3_IRQHandler() { while (1) { } }
-void DMA1_Ch4_5_DMAMUX1_OVR_IRQHandler() { while (1) { } }
-void ADC1_IRQHandler() { while (1) { } }
-void TIM1_BRK_UP_TRG_COM_IRQHandler() { while (1) { } }
-void TIM1_CC_IRQHandler() { while (1) { } }
-void TIM3_IRQHandler() { while (1) { } }
-void TIM14_IRQHandler() { while (1) { } }
-void TIM16_IRQHandler() { while (1) { } }
-void TIM17_IRQHandler() { while (1) { } }
+void DMA1_Channel4_5_IRQHandler() { while (1) { } }
+void ADC1_COMP_IRQHandler() { while (1) { } }
+void LPTIM1_IRQHandler() { while (1) { } }
+void TIM2_IRQHandler() { while (1) { } }
+void TIM21_IRQHandler() { while (1) { } }
 void I2C1_IRQHandler() { while (1) { } }
-void I2C2_IRQHandler() { while (1) { } }
 void SPI1_IRQHandler() { while (1) { } }
-void SPI2_IRQHandler() { while (1) { } }
-void USART1_IRQHandler() { while (1) { } }
-void USART2_IRQHandler() { while (1) { } }
+void LPUART1_IRQHandler() { while (1) { } }
