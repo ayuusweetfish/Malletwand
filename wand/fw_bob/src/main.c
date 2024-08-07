@@ -714,7 +714,7 @@ if (1) {
   bool parity = 0;
   uint8_t data[16] = {0};
   // for (int i = 0; i < 10; i++) {
-  while (0) {
+  while (1) {
     data[0] = 0x55;
     data[1] = 0xAA;
     data[2] = 0x00;
@@ -897,7 +897,17 @@ void SysTick_Handler()
 
 void USART2_IRQHandler()
 {
-  HAL_UART_IRQHandler(&uart2);
+  // HAL_UART_IRQHandler(&uart2);
+  uint32_t isr = USART2->ISR;
+  uint32_t err = (isr &
+    (USART_ISR_PE | USART_ISR_FE | USART_ISR_ORE | USART_ISR_NE | USART_ISR_RTOF));
+  if (err != 0) {
+    swv_printf("error! %u\n", uart2.ErrorCode);
+  } else {
+    if (isr & USART_ISR_RXNE) {
+      uart2.RxISR(&uart2);  // UART_RxISR_8BIT
+    }
+  }
 }
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *_uart2)
 {
@@ -909,7 +919,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *_uart2)
 }
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *_uart2)
 {
-  swv_printf("error! %u\n", uart2.ErrorCode);
+  // swv_printf("error! %u\n", uart2.ErrorCode);
 }
 
 void NMI_Handler() { while (1) { } }
