@@ -30,18 +30,76 @@ static inline void swv_putchar(uint8_t c)
     swv_buf[swv_buf_ptr - 1] = c;
   }
 }
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+static char sbuf[32];
+static const int swv_i32toa(uint32_t value, bool sgn, int base, int width, bool zeropad) {
+  char *s = &sbuf[32];
+  bool neg = false;
+  if (sgn && (int32_t)value < 0) {
+    neg = true;
+    value = (uint32_t)(-(int32_t)value);
+  }
+  do {
+    *(--s) = "0123456789abcdef"[value % base];
+    value /= base;
+  } while (value != 0);
+  if (width > 0 && zeropad) while (32 - (s - sbuf) + (neg ? 1 : 0) < width) *(--s) = '0';
+  if (neg) *(--s) = '-';
+  if (width > 0 && !zeropad) while (32 - (s - sbuf) < width) *(--s) = ' ';
+  return s - sbuf;
+}
+static inline int swv_vsnprintf(char *restrict buf, size_t bufsz, const char *restrict fmt, va_list va)
+{
+  size_t bufptr = 0;
+  char c;
+
+#define _out(_c) do { \
+  if (bufptr < bufsz) buf[bufptr] = (_c); \
+  bufptr++; \
+} while (0)
+
+  while ((c = *(fmt++)) != '\0') {
+    if (c != '%') {
+      _out(c);
+    } else {
+      uint32_t width = 0;
+      bool zeropad = false;
+      char t = *(fmt++);
+      while (t >= '0' && t <= '9') {
+        if (t == '0' && width == 0) zeropad = true;
+        else width = width * 10 + (t - '0');
+        t = *(fmt++);
+      }
+      if (t == 'd' || t == 'u' || t == 'x') {
+        uint32_t n = (uint32_t)va_arg(va, unsigned int);
+        int offs = swv_i32toa(n, t == 'd', t == 'x' ? 16 : 10, width, zeropad);
+        for (; offs < 32; offs++) _out(sbuf[offs]);
+      } else if (t == 'c') {
+        char c = (char)va_arg(va, int);
+        _out(c);
+      }
+    }
+  }
+
+#undef _out
+  return bufptr;
+}
 static void swv_printf(const char *restrict fmt, ...)
 {
   char s[256];
   va_list args;
   va_start(args, fmt);
-  int r = vsnprintf(s, sizeof s, fmt, args);
+  int r = swv_vsnprintf(s, sizeof s, fmt, args);
+  va_end(args);
   for (int i = 0; i < r && i < sizeof s - 1; i++) swv_putchar(s[i]);
   if (r >= sizeof s) {
     for (int i = 0; i < 3; i++) swv_putchar('.');
     swv_putchar('\n');
   }
 }
+// swv_printf("%d %3d %8d %08d %04x %3d %03d\n", 3, 4, -7, -7, 26, 12345, -12);
+#pragma GCC pop_options
 #else
 #define _release_inline inline
 #define swv_printf(...)
@@ -655,7 +713,8 @@ if (1) {
 
   bool parity = 0;
   uint8_t data[16] = {0};
-  while (1) {
+  // for (int i = 0; i < 10; i++) {
+  while (0) {
     data[0] = 0x55;
     data[1] = 0xAA;
     data[2] = 0x00;
