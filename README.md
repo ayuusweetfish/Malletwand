@@ -2,9 +2,9 @@
 
 **Malletwand** is a handheld controller device in the form of a pendulum (a handle with a swinging bob), which can act as an input interface to the timing of musical playback.
 
-We present this at [NIME](https://nime.org/) 2024 as a short paper ([PDF](paper/paper.pdf); video to-be-updated) in paper session 10, on Friday, 6 Sep.
+We present this at [NIME](https://nime.org/) 2024 as a short paper ([PDF](paper/nime/paper.pdf); video to-be-updated) in paper session 10, on Friday, 6 Sep.
 
-![Banner image: the white balls of the controllers swinging in the air, in front of a prototype self-playing glockenspiel](paper/Mw_Banner.jpg)
+![Banner image: the white balls of the controllers swinging in the air, in front of a prototype self-playing glockenspiel](paper/nime/Mw_Banner.jpg)
 
 ## Contents
 
@@ -21,7 +21,7 @@ To use the files, the following software packages are required (versions for ref
 
 The following directories contain miscellaneous resources:
 - **numerical/**: Numerical experiments for the filtering algorithms (EKF and ALS), implemented in Julia.
-- **paper/**: The paper's LaTeX source and images.
+- **paper/nime/**: The paper's LaTeX source and images.
 - **testdrive/**: A testbed prototype for the sensors, created in the early days of development. Includes both hardware and firmware, and a desktop client to receive the BLE signals. Currently not well documented, but might be relevant for inspection (and visualisation?).
 - **releases/**: Gerber files submitted to the PCB fabrication house.
 
