@@ -1,0 +1,29 @@
+1
+00:00:05,600 --> 00:00:14,200
+Malletwand is a handheld pendulum
+that acts as an interface to musical timing.
+
+2
+00:00:14,200 --> 00:00:21,600
+Musical timing is manipulated by
+manually interfering with the pendulum's period.
+
+3
+00:00:21,600 --> 00:00:26,600
+This interface adapts to player expertise, and can
+be integrated into many music-playing devices.
+
+4
+00:00:28,100 --> 00:00:33,000
+We build a self-playing glockenspiel
+operated by this pendulum controller.
+
+5
+00:00:33,000 --> 00:00:38,100
+Creating a tactile and interactive experience
+for all participants.
+
+6
+00:00:50,800 --> 00:00:55,800
+Social play is encouraged by the synchronising
+attempts between multiple participants.
