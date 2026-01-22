@@ -14,12 +14,14 @@
 
 \begin{document}
 
-\title{Malletwand: A Handheld Pendulum to Explore Music}
+\title{Demonstrating Malletwand: A Handheld Pendulum to Explore Music}
 
 \author{Lyu, S.}
 \email{claire@ayu.land}
 \author{Li, H.}
 \email{lihanxua22@mails.tsinghua.edu.cn}
+\author{Mi, H.}
+\email{mhp@tsinghua.edu.cn}
 \affiliation{%
   \institution{Tsinghua University}
   \city{Beijing}
@@ -29,7 +31,7 @@
 \renewcommand{\shortauthors}{Lyu et al.}
 
 \begin{abstract}
-We build a handheld pendulum device as a means for participants to feel and manipulate the timing of musical playback (in our case, played by a robotic glockenspiel). The physical properties of the pendulum make this interaction scheme steady and intuitive, catering to varied levels of expertise, and particularly suitable as an introductory, educational means of musical engagement. Social play is also encouraged through a multi-player cooperative mode. We envisage that similar physically-guided, tactile interaction schemes can be employed in wider contexts and with different media formats to foster participant exploration, discovery, and creativity.
+We present a handheld pendulum device as an exploratory interface that allows participants to feel and manipulate musical timing. The participant swings the pendulum, and a robotic glockenspiel instrument plays music with a tempo matching the pendulum at one beat per swing. The physical properties of the pendulum make an organic mapping that naturally gravitates towards a steady, plausible rhythm, while still intuitively open to explicit control. While particularly suitable as an introductory, educational means of musical engagement, this interface caters to varied levels of expertise, providing opportunities for expression by manifesting the participant's own understanding of the musical phrases. Social play is also encouraged through a multi-player cooperative mode. We envision that the approach of physically-guided, tactile, accessible interaction schemes can be extended to wider contexts and different media formats to foster participant exploration, discovery, and creativity.
 \end{abstract}
 
 \begin{CCSXML}
@@ -62,14 +64,131 @@ We build a handheld pendulum device as a means for participants to feel and mani
 
 \section{Introduction}
 
+Throughout our experience, we have always been able to capture the instinctive desire to actively and earnestly engage in music from those that have not had the advantage of dedicated training. We believe that music, as a natural and fundamental means of human expression, has always been sparking interest in a wider audience who has the potential to establish a closer connection with it.
+
+In our lasting endeavour to expand the reach of musically-meaningful interactive experiences, we set out on a search of an interaction scheme that can be naturally understood and operated without prior training, while navigating the participant in sensible directions to manipulate the sounds to their own imagination, opening spaces for individual expression.
+
+The periodic motion of the pendulum caught our attention. The stability and self-recovering property of pendular motion makes for a reliable framework of periodic musical time, i.e., tempo, or beat duration, that plays a significant role across musical cultures.
+
+In this demonstration, we present a controller interface, which we title \textit{Malletwand}, in the form of a handheld pendulum device (the ``wand''). By swinging the pendulum, the participant is able to feel and manipulate the speed of musical time, while the kinematic properties gently guide them through the tendency to keep a stable period, preventing excessive deviance from a steady tempo and thus a generally plausible sound. This makes it particularly suitable as an introductory, educational means of musical engagement. Meanwhile, the participant is also free to deliberately alter the timing by swinging at the speed they intend, so that they can control the speed and the phrasing of the music.
+
+We imagine that this interface be paired with various types of musical actuators. For this demonstration, we build a self-playing glockenspiel (the ``mallet'') operated by up to two such controllers in order to demonstrate how our design encourages musical exploration and social play.
+
 Lorem ipsum~\cite{nime2024_59} dolor sit amet~\cite{Brower:Cog}
+
+\section{Related Work}
+
+As we direct our design towards approachability for all levels of expertise, we look for intuitive universalities among human music, ideally natural kinesthetic and auditory stimuli that are processed and understood subconsciously. We directed our attention to the formation and perception of isochronal patterns based on the abundant argument that humans naturally tend to perceive time, and especially in the musical context, in cycles and patterns~\cite{Brower:Cog, Neisser_1976, Ravignani2016}. To paraphrase our forerunners, repeating cycles of time set the boundaries of our activities as well as form grounds on which we anticipate our sensory stimuli. Discussions went further to establish the metaphorical and cognitive interplay of our sense of time with embodied motion~\cite{Johnson_Larson_2003, Johnson_2008}.
+
+Indeed, there have been a number of devices that manifest the link between periodic bodily movement and stable temporal patterns. Scrubbing is a standard technique for turntablists to manipulate the speed of sounds by rotating vinyl records. Hand-cranked musical boxes provide a more approachable way to drive the flow of music by one's own hands; although the Swedish band Wintergatan went as far as to build an entire machine, the Marble Machine, that turns the revolution of the manual crank into the progression of a musical piece~\cite{Rundle_Woollaston-Webber_2017}.
+
+However, these devices share the common limitation that they require practice, or at least familarity with steady bodily movement, to prevent sounds from being distorted in the temporal domain. Laypeople tend to invoke unsteady musical time on such devices, rendering the music less understandable and aesthetically pleasing, while it remains unclear to them how they should refine their actions in the reasonable directions. Thus, they will not be able to get the most out of the tactile musical experience.
+
+From another perspective, we are delighted to see novel musical devices that employ pendular motion or handheld physical controllers. Kugelschwung~\cite{Kugelschwung} is a digital musical instrument that relies on a set of pendulums mounted on a tabletop frame supplying control signals for soundscapes. Le Bâton~\cite{LeBaton} maps the chaotic behaviour of the triple pendulum into unpredictably varying electronic sounds. Gyrotyre~\cite{Gyrotyre}, on the other hand (no pun intended), is a handheld controller that maps oscillating signals from a gyroscope installed on a precessing wheel to various musical applications.
+
+Still, these interfaces and instruments take larger physical forms and mainly aim at stage performances and/or dedicated experimental production setups. Our design adds to this ensemble a missing piece: a lightweight handheld controller interface that can be enjoyable and meaningful regardless of the participant's prior musical experience.
+
+\section{The ``Wand''}
+
+\subsection{Design Overview}
+We first present the details of the handheld controller interface. It takes the form of a handle with a hanging bob (ball) that can freely swing and spin around, forming a pendulum. The participant swings the pendulum at their desired frequency while the bob's quasi-periodic motion is mapped to continuous musical time such that each fastest-moving point in a period corresponds to the start of a beat. (This point is usually perceived to be the ``central'' or the ``lowest'' point in simple pendulums, but since ours has an extra degree of freedom, i.e., is a spherical pendulum, this appointment needs to be extrapolated.) Such generated timing signals are wirelessly transmitted to an actuator, such as a self-playing instrument, that plays a piece of music according to the manipulated flow of musical time.
+
+We add a few simple features to enrich the feedback and the interaction. Haptic feedback at beat onsets is provided by a vibration motor. A tri-colour LED is placed inside the bob that is flexible in its responses to interaction, e.g., it may indicate the changing beats by alternating tints or identify the voice by colour coding in the case of multiplayer interaction. Furthermore, the controller is intended to be normally at rest, so it is equipped with a tilt sensor that wakes up the entire circuit from sleep when the device is picked up by a participant. A single-pole, single-throw (SPST) switch allows the overall power to be turned off during times without participants.
+
+\subsection{Construction}
+We design customised electronics for all of our devices. In addition to the aforementioned components, the handle contains a lithium polymer (Li-Po) battery, a microcontroller, and a radio transceiver; the bob contains a separate low-power microcontroller and MEMS chips that form a 9-axis IMU (an accelerometer, a gyroscope, and a geomagnetometer). The complete structure is illustrated in Figure~\ref{fig:WandConstruction}.
+
+\begin{figure*}[t!]
+  \centering
+  \includegraphics[width=1\textwidth]{nime/Mw_Wand.pdf}
+  \caption{(a) Photo of the assembled circuit board before being cut. (b) Photo of the assembled wand with the casing and the bob. (c) Block diagram of the electronic components involved.}
+  \label{fig:WandConstruction}
+\end{figure*}
+
+The board is fabricated as one, in order to ease soldering and debugging as we build the prototype. After testing is complete, we cut the board at the thin connection (in Figure~\ref{fig:WandConstruction}a) and connect the two parts with soldered thin wires (3 strands of 32 AWG, establishing an asynchronous USART connection). The handle part is glued inside a 3D-printed casing with the wires hanging down onto the bob part (Figure~\ref{fig:WandConstruction}b), which is inserted onto a holder made of polymeric foam glued in a translucent plastic sphere filled with down cotton. We add fishing wires to strengthen the connection and prevent the electric wires from excessive tension and fatigue.
+
+\subsection{Estimation Algorithm}
+All processing is done on the microcontroller device. The microcontroller we used, STM32G0, is an Arm Cortex-M0+ processor without a dedicated FPU, but our complete algorithm runs well within its 64 MHz system clock with software floating-point arithmetic.
+
+The algorithm requires an initial reference frame calibration, run once after assembly. An ensemble of filters is then employed to process the sensor signals. We introduce these steps respectively. To keep our description concise, we defer all of the mathematical details to Appendix~\ref{appendix:signal-processing}.
+
+\subsubsection{Reference frame calibration}
+After assembly, the tilted orientation of the circuit board inside the bob should be compensated for.
+
+The calibration is initiated by a manually-issued wireless radio signal. The operator is then expected to hold the handle and let the bob stay stationary for a short while. Signals from the accelerometer are continuously monitored until they reach a sufficiently low deviation throughout a fixed time window of 3 seconds. This yields an axis vector that acts as the reference for future motion estimation from sensor readings which is saved in the persistent flash storage of the microcontroller. For details, please refer to Appendix~\ref{appendix:calib-ori}.
+
+\subsubsection{Magnetometer calibration}
+As our algorithm relies on the geomagnetometer to improve the accuracy of pose estimation, the distortion of the ambient magnetic field should also be compensated. Since indoor environments contain prominent and variable magnetic interference, this calibration is done in real time during operation. This works by continuously collecting the readings of the magnetometer and finding an ellipsoid fit that tries to distort the collected data in the form of 3D vectors onto a unit sphere. We employ the adjusted least squares estimator introduced by \cite{Markovsky_2004_ALS} with complementary steps by \cite{Renaudin2010}.
+
+\subsubsection{Motion signal processing}
+Our IMU produces readings at a sampling rate of 100 Hz, and the filtering algorithms run at the same rate. At each time step, we first estimate the facing of the bob through a complementary filter, inspired by%
+%~\cite{Min_Complementary}
+, combining signals from the gyroscope and the magnetometer. The result is turned into a rotational transform that cancels out the bob's rotation around its own axis. Sensor readings adjusted by this transform are then fed into an extended Kalman filter (EKF) that estimates the trajectory of the bob in 3D space, and more importantly, its current phase within the period of motion. This is the value that gets interpreted as the driving signal of musical time, and is transmitted to the actuator.
+
+A confidence indicator is derived from the Frobenius norm of the estimation covariance matrix in the EKF. This value is used to avoid muddled time progression when the motion is not stably periodic, e.g., during the first few seconds since the beginning of interaction.
+
+\section{The ``Mallets''}
+
+\begin{figure*}[bh!]
+  \centering
+  \includegraphics[width=1\textwidth]{nime/Mw_Mallet.pdf}
+  \caption{(a) Overall photo of the instrument. (b) Close-up of a single sub-unit. (c) Block diagram of the electronic components involved.}
+  \label{fig:MalletConstruction}
+\end{figure*}
+
+\subsection{Design Overview}
+Our self-playing instrument is a robotic glockenspiel. We use a 3-key prototype for demonstrative purposes, but an extension of register requires no change in implementation.
+
+The instrument is accompanied by two Malletwand controllers and can operate in both solo and co-operative mode. Signals received from the controllers drive the musical time in a preprogrammed piece, similar to a musical box. Co-operative mode is entered by two controllers being operated simultaneously, where each controller corresponds to one voice (part) indicated by colours of the lights. The music only progresses when the motion of the two are roughly in synchronisation.
+
+\subsection{Construction}
+\subsubsection{Keys}
+The keys are laser-cut from aluminum of 5 mm thickness. We chose aluminum instead of an alloy since we would like a mellower timbre. Prior to production, we ordered a small number of samples from the fabricator to determine the acoustic characteristics of the material. The resonant frequency of a vibrating metal bar is inversely proportional to the square root of its length; we thus calculate the desired lengths according to equal-temperament tuning, create the blueprints programmatically in OpenSCAD and send them for fabrication.
+
+\subsubsection{Electronics}
+The electronics of the instrument comprise a main unit and multiple sub-units, one for each key. The main unit is responsible for the communication with the controller(s) as well as the delivery of power and control signals to the sub-units. Each sub-unit has a small brushless DC (BLDC) motor that holds a yarn mallet, fixed onto a circuit board bearing a magnetic encoder, a tri-colour LED, and a microcontroller carrying out vector control. The entire device is powered by a single DC supply between 9~V and 25~V into the main unit. The complete structure is illustrated in Figure~\ref{fig:MalletConstruction}.
+
+We choose I\textsuperscript{2}C as the communication protocol, requiring only two electrical signals for multiple parallel devices. We use an I\textsuperscript{2}C accelerator chip on the main unit to mitigate the rise time issue due to increased bus capacitance of long transmission wires.
+
+\subsubsection{Mechanical and miscellaneous}
+We fix all units (both the main one and sub-units) onto polymeric foam which is glued onto a thin wooden board that serves as the base. Slots created on the foam hold the units as well as the electrical lines. We glue an extra frame made of wooden sticks around the foam to improve stability.
+
+The mechanical parts for the fixation of motors and mallets are 3D-printed in PLA and installed with screws. Yarn on the mallets is manually wrapped around a wooden core and slightly melted with a lighter in order to tighten it.
+
+\subsection{Performance}
+During operation, the glockenspiel plays a tune as the pendulums swing back and forth. The tempo of the music adjusts to the period of pendular motion. Haptic feedback and lights on both the bob and the keys add tactility and visualisation to the embodied musical experience. Figure~\ref{fig:Banner} is a photo of the instrument in action.
+
+Please refer to the demonstration video for a performance recording.
+
+\section{Discussion}
+
+\subsection{The Experience of Malletwand}
+Our design accomplished our initial goals. The algorithms yield a reliable estimation of motion, successfully running the glockenspiel through a tune steadily with little external intervention on the pendulum, while being able to respond reasonably fast to changes in motion (within 1\textasciitilde{}2 swings). We enjoyed our own work.
+
+Our pilot study with outside participants was preliminary, but sufficient to bring forth a few insights. We confirmed that the pendulum-based interface is appreciated for its accuracy and ease of use. First-time users might not instantly figure out how to reliably manipulate the speed (period) of the pendulum, but were able to do so with their own exploration or with a hint. Since participants were able to quickly grasp the mapping logic and its control, musical exploration was instantly opened up to them. Participants tended to experiment with extremes before resorting to a steady tempo, trying gentler articulations. They considered the interaction intuitive and manageable, and reported being generally successful in their pursuit of musical engagement and expression.
+
+Social play is encouraged through the attempts to synchronise between the duo. This resembles the experience of musicians in ensembles, orchestras, or bands, and is appreciated by such practitioners. However, we notice that this is a rare and precious chance for participants with less musical experiences, and we hope to bring such meaningful and joyful activities to their reach through our design. We are still yet to conduct more extensive studies with such participants.
+
+One major shortcoming of the co-operative mode is the difficulty to synchronise the phases between the duo, due to inertia preventing quick changes in speed, even more so regarding phase and position. This has the benefit of extending conversations and explorations between participants, but the less experienced of them might not figure out effective ways quickly and intuitively. In this regard, we are considering improving on the co-operative play mode, either by revamping the interaction rules or by extra hints in the form of synchronised haptic feedback or textual hints.
+
+\subsection{Extrapolations and Future Work}
+As we have written in the Introduction section, we imagine that this interface not be limited to our glockenspiel instrument. Any device that plays music can employ a pendulum interface to invite participants into musical time. Hybrid formats, including projections and mappings, or musical devices remotely incited beyond kilometers, open doors to tactility in a hybrid world.
+
+Other musical features or temporal formats, or even spatial expositions, may be involved as well. What about an installation that gives procedurally generated sounds? What about a film? A dance? A video game where cats chase the wand? A revolving kaleidoscope or a planetarium?
+
+The estimation algorithms in the pendulum enable it to act as a standalone sensor, adding to the toolkit of digital artistic expression. What about an electronic mimicry of a windbell? A big hanging simulated telescope? A sparkling earring?
+
+Another possible extrapolation lies in the mobile scenario. The sensors we used are standard in today's smartphones, and relevant APIs are readily available on modern web browsers. Thus, with the processing algorithms ported to JavaScript, websites will be able to create novel interactive experiences without special equipment, simply by asking the visitor to put their phone in a holder, attach a string, and swing it to their liking. What about such a musical box? We leave all these for the reader as exercises while we try our hands on a few.
+
+\section{Conclusion}
+Malletwand is our first step in spreading the enjoyability of music through a tactile medium. It is to our delight to have implemented the system and seeing it bear the unique approachability and adaptability to varied levels of musical expertise, adding to the state-of-the-art repertoire of physical-system controller interfaces. We realise that this interface has the potential to adapt to more instruments and scenarios, and put forward what we have envisaged. We share our work in the hope that our methods and insights can be useful to those who share the aspirations with us.
 
 \begin{acks}
 Lorem ipsum
 \end{acks}
 
 \bibliographystyle{ACM-Reference-Format}
-\bibliography{refs, nime-references}
+\bibliography{refs, nime/nime-references}
 
 \appendix
 
